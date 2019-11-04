@@ -24,9 +24,7 @@ def match_buyers_and_sellers(buy_orders, sell_orders, banned_user_matches):
              ('buy_order2_uuid', 'sell_order2_uuid'))
     """
 
-    max_number_of_shares = max(
-        [o["number_of_shares"] for o in buy_orders + sell_orders]
-    )
+    max_number_of_shares = max(o["number_of_shares"] for o in buy_orders + sell_orders)
     buy_orders_copy = deepcopy(buy_orders)
     sell_orders_copy = deepcopy(sell_orders)
 
