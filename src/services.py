@@ -567,6 +567,7 @@ class OfferService:
                     chat_room=chat_room,
                     offer=offer,
                     offer_status="ACCEPTED",
+                    is_deal_closed=True,
                 )
             offer = OfferService._get_current_offer(session=session, offer=offer)
             return OfferService._serialize_chat_offer(
@@ -594,6 +595,7 @@ class OfferService:
                 chat_room=chat_room,
                 offer=offer,
                 offer_status="REJECTED",
+                is_deal_closed=False,
             )
             offer = OfferService._get_current_offer(session=session, offer=offer)
             OfferService._update_chatroom_datetime(
@@ -676,9 +678,9 @@ class OfferService:
             raise ResourceNotOwnedException("Wrong user")
 
     @staticmethod
-    def _update_offer_status(session, offer, chat_room, offer_status):
+    def _update_offer_status(session, offer, chat_room, offer_status, is_deal_closed):
         chat_room.updated_at = offer.created_at
-        chat_room.is_deal_closed = True
+        chat_room.is_deal_closed = is_deal_closed
         offer.offer_status = offer_status
         session.commit()
 
