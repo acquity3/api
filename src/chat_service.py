@@ -22,7 +22,7 @@ class ChatSocketService(socketio.AsyncNamespace):
     async def _authenticate(self, token):
         linkedin_user = self.linkedin_login._get_user_profile(token=token)
         user = self.user_service.get_user_by_linkedin_id(
-            user_id=linkedin_user.get("user_id")
+            provider_user_id=linkedin_user.get("provider_user_id")
         )
         return user.get("id")
 
