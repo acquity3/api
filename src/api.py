@@ -139,7 +139,9 @@ async def get_all_securities(request):
 @auth_required
 async def edit_security_market_price(request, user, id):
     return json(
-        request.app.edit_market_price(**request.json, id=id, subject_id=user["id"])
+        request.app.security_service.edit_market_price(
+            **request.json, id=id, subject_id=user["id"]
+        )
     )
 
 

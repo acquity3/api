@@ -11,8 +11,8 @@ user_request_service = UserRequestService(config=APP_CONFIG)
 
 def test_get_requests():
     admin = create_user("1", is_committee=True)
-    buyer = create_user("2")
-    seller = create_user("3")
+    buyer = create_user("2", can_buy=False)
+    seller = create_user("3", can_sell=False)
 
     buyer_request = create_user_request(
         user_id=buyer["id"], is_buy=True, closed_by_user_id=None

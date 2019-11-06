@@ -81,13 +81,15 @@ class User(Base):
         d = {"auth_token": None}
 
         with session_scope() as session:
-            req = session.query(UserRequest).filter_by(user_id=str(self.id))
+            req = session.query(UserRequest).filter_by(
+                user_id=str(self.id), closed_by_user_id=None
+            )
 
             for col in ["can_buy", "can_sell"]:
-                if req.filter_by(is_buy=col == "can_buy").count() > 0:
-                    item = "UNAPPROVED"
-                elif getattr(self, col):
+                if getattr(self, col):
                     item = "YES"
+                elif req.filter_by(is_buy=col == "can_buy").count() > 0:
+                    item = "UNAPPROVED"
                 else:
                     item = "NO"
                 d[col] = item
