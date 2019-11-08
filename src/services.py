@@ -5,6 +5,7 @@ import requests
 from sqlalchemy.sql import func
 
 from src.database import (
+    ArchivedChatRoom,
     BannedPair,
     BuyOrder,
     Chat,
@@ -816,20 +817,14 @@ class ChatRoomService:
     def __init__(self, config):
         self.config = config
 
-    def get_chat_rooms(self, user_id, user_type):
+    def get_chat_rooms(self, user_id, user_type, is_archived):
         data = []
         with session_scope() as session:
-            queries = []
-            if user_type == "buyer":
-                queries.append(ChatRoom.buyer_id == user_id)
-            if user_type == "seller":
-                queries.append(ChatRoom.seller_id == user_id)
-            results = (
-                session.query(ChatRoom, BuyOrder, SellOrder)
-                .filter(*queries)
-                .outerjoin(BuyOrder, ChatRoom.buyer_id == BuyOrder.user_id)
-                .outerjoin(SellOrder, ChatRoom.seller_id == SellOrder.user_id)
-                .all()
+            results = ChatRoomService._filter_chat_rooms_by_archive(
+                user_id=user_id,
+                user_type=user_type,
+                session=session,
+                is_archived=is_archived,
             )
             for result in results:
                 data.append(
@@ -875,6 +870,37 @@ class ChatRoomService:
                 chat_room.is_seller_revealed = True
             elif chat_room.buyer_id == user_id:
                 chat_room.is_buyer_revealed = True
+
+    @staticmethod
+    def _filter_chat_rooms_by_archive(user_id, user_type, session, is_archived):
+        user_type_queries = ChatRoomService._get_user_type_filter(
+            user_type=user_type, user_id=user_id
+        )
+        archive_queries = ChatRoomService._get_archive_filter(is_archived=is_archived)
+        results = (
+            session.query(ChatRoom, BuyOrder, SellOrder)
+            .filter(user_type_queries)
+            .outerjoin(ArchivedChatRoom, ChatRoom.id == ArchivedChatRoom.chat_room_id)
+            .filter(archive_queries)
+            .outerjoin(BuyOrder, ChatRoom.buyer_id == BuyOrder.user_id)
+            .outerjoin(SellOrder, ChatRoom.seller_id == SellOrder.user_id)
+            .all()
+        )
+        return results
+
+    @staticmethod
+    def _get_user_type_filter(user_type, user_id):
+        if user_type == "buyer":
+            return ChatRoom.buyer_id == user_id
+        else:
+            return ChatRoom.seller_id == user_id
+
+    @staticmethod
+    def _get_archive_filter(is_archived):
+        if is_archived:
+            return ArchivedChatRoom.user_id.isnot(None)
+        else:
+            return ArchivedChatRoom.user_id.is_(None)
 
     @staticmethod
     def _serialize_chat_room(chat_room, buy_order, sell_order):

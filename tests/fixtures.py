@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from src.database import (
     BannedPair,
     BuyOrder,
+    ChatRoom,
     Match,
     Round,
     Security,
@@ -151,6 +152,14 @@ def create_banned_pair(id=0, **kwargs):
         session.add(banned_pair)
         session.commit()
         return banned_pair.asdict()
+
+
+def create_chatroom(**kwargs):
+    with session_scope() as session:
+        chat_room = ChatRoom(**kwargs)
+        session.add(chat_room)
+        session.commit()
+        return chat_room.asdict()
 
 
 def create_user_request(id=0, **kwargs):

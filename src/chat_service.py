@@ -44,9 +44,9 @@ class ChatSocketService(socketio.AsyncNamespace):
         )
         return user.get("id")
 
-    async def _get_chat_rooms(self, sid, user_id, user_type):
+    async def _get_chat_rooms(self, sid, user_id, user_type, is_archived):
         rooms = self.chat_room_service.get_chat_rooms(
-            user_id=user_id, user_type=user_type
+            user_id=user_id, user_type=user_type, is_archived=is_archived
         )
         for room in rooms:
             self.enter_room(sid, room.get("chat_room_id"))
@@ -63,7 +63,10 @@ class ChatSocketService(socketio.AsyncNamespace):
     async def on_req_chat_rooms(self, sid, data):
         user_id = await self._authenticate(token=data.get("token"))
         rooms = await self._get_chat_rooms(
-            sid=sid, user_id=user_id, user_type=data.get("user_type")
+            sid=sid,
+            user_id=user_id,
+            user_type=data.get("user_type"),
+            is_archived=data.get("is_archived"),
         )
         await self.emit("res_chat_rooms", rooms, room=user_id)
 
