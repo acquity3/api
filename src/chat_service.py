@@ -1,5 +1,6 @@
 import socketio
 
+from src.exceptions import AcquityException
 from src.services import (
     ChatRoomService,
     ChatService,
@@ -7,6 +8,23 @@ from src.services import (
     OfferService,
     UserService,
 )
+
+
+def handle_acquity_exceptions(emit_message):
+    def decorator(f):
+        async def decorated(self, sid, *args, **kwargs):
+            try:
+                return await f(self, sid, *args, **kwargs)
+            except AcquityException as e:
+                await self.emit(
+                    emit_message,
+                    {"status_code": e.status_code, "message": e.message},
+                    room=sid,
+                )
+
+        return decorated
+
+    return decorator
 
 
 class ChatSocketService(socketio.AsyncNamespace):
@@ -20,7 +38,7 @@ class ChatSocketService(socketio.AsyncNamespace):
         self.config = config
 
     async def _authenticate(self, token):
-        linkedin_user = self.linkedin_login._get_user_profile(token=token)
+        linkedin_user = self.linkedin_login.get_user_profile(token=token)
         user = self.user_service.get_user_by_linkedin_id(
             provider_user_id=linkedin_user.get("provider_user_id")
         )
@@ -41,6 +59,7 @@ class ChatSocketService(socketio.AsyncNamespace):
     async def on_disconnect(self, sid):
         return {"data": "success"}
 
+    @handle_acquity_exceptions("err_chat_rooms")
     async def on_req_chat_rooms(self, sid, data):
         user_id = await self._authenticate(token=data.get("token"))
         rooms = await self._get_chat_rooms(
@@ -48,6 +67,7 @@ class ChatSocketService(socketio.AsyncNamespace):
         )
         await self.emit("res_chat_rooms", rooms, room=user_id)
 
+    @handle_acquity_exceptions("err_conversation")
     async def on_req_conversation(self, sid, data):
         user_id = await self._authenticate(token=data.get("token"))
         conversation = self.chat_service.get_conversation(
@@ -57,6 +77,7 @@ class ChatSocketService(socketio.AsyncNamespace):
         )
         await self.emit("res_conversation", conversation, room=user_id)
 
+    @handle_acquity_exceptions("err_new_message")
     async def on_req_new_message(self, sid, data):
         user_id = await self._authenticate(token=data.get("token"))
         room_id = data.get("chat_room_id")
@@ -69,6 +90,7 @@ class ChatSocketService(socketio.AsyncNamespace):
 
         await self.emit("res_new_message", chat, room=room_id)
 
+    @handle_acquity_exceptions("err_new_offer")
     async def on_req_new_offer(self, sid, data):
         user_id = await self._authenticate(token=data.get("token"))
         room_id = data.get("chat_room_id")
@@ -81,6 +103,7 @@ class ChatSocketService(socketio.AsyncNamespace):
         )
         await self.emit("res_new_offer", offer, room=room_id)
 
+    @handle_acquity_exceptions("err_accept_offer")
     async def on_req_accept_offer(self, sid, data):
         user_id = await self._authenticate(token=data.get("token"))
         room_id = data.get("chat_room_id")
@@ -92,6 +115,7 @@ class ChatSocketService(socketio.AsyncNamespace):
         )
         await self.emit("res_accept_offer", offer, room=room_id)
 
+    @handle_acquity_exceptions("err_decline_offer")
     async def on_req_decline_offer(self, sid, data):
         user_id = await self._authenticate(token=data.get("token"))
         room_id = data.get("chat_room_id")
@@ -103,6 +127,7 @@ class ChatSocketService(socketio.AsyncNamespace):
         )
         await self.emit("res_decline_offer", offer, room=room_id)
 
+    @handle_acquity_exceptions("err_reveal_identity")
     async def on_req_reveal_identity(self, sid, data):
         user_id = await self._authenticate(token=data.get("token"))
         room_id = data.get("chat_room_id")
@@ -111,6 +136,7 @@ class ChatSocketService(socketio.AsyncNamespace):
 
         await self.emit("res_reveal_identity", {}, room=room_id)
 
+    @handle_acquity_exceptions("err_other_party_details")
     async def on_req_other_party_details(self, sid, data):
         user_id = await self._authenticate(token=data.get("token"))
         room_id = data.get("chat_room_id")

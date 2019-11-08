@@ -925,7 +925,7 @@ class LinkedInLogin:
             if len(users) == 1:
                 return users[0]
 
-        user_profile = self._get_user_profile(token=token)
+        user_profile = self.get_user_profile(token=token)
         email = self._get_user_email(token=token)
         return {**user_profile, "email": email}
 
@@ -948,7 +948,7 @@ class LinkedInLogin:
         return json_res
 
     @staticmethod
-    def _get_user_profile(token):
+    def get_user_profile(token):
         user_profile_request = requests.get(
             "https://api.linkedin.com/v2/me?projection=(id,firstName,lastName,profilePicture(displayImage~:playableStreams))",
             headers={"Authorization": f"Bearer {token}"},
