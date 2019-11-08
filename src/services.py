@@ -69,8 +69,11 @@ class UserService:
                 session.add(user)
                 session.flush()
 
-                req = UserRequest(user_id=str(user.id), is_buy=is_buy)
-                session.add(req)
+                buy_req = UserRequest(user_id=str(user.id), is_buy=True)
+                session.add(buy_req)
+                if not is_buy:
+                    sell_req = UserRequest(user_id=str(user.id), is_buy=False)
+                    session.add(sell_req)
 
                 email_template = "register_buyer" if is_buy else "register_seller"
                 self.email_service.send_email(emails=[email], template=email_template)

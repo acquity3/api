@@ -57,14 +57,16 @@ def test_create__is_sell():
 
     with session_scope() as session:
         user = session.query(User).filter_by(email="a@a.io").one().asdict()
-        req = session.query(UserRequest).one().asdict()
+        buy_req = session.query(UserRequest).filter_by(is_buy=True).one().asdict()
+        sell_req = session.query(UserRequest).filter_by(is_buy=False).one().asdict()
 
     user_expected = user_params
     user_expected.pop("is_buy")
-    user_expected.update({"can_buy": "NO", "can_sell": "UNAPPROVED"})
+    user_expected.update({"can_buy": "UNAPPROVED", "can_sell": "UNAPPROVED"})
     assert_dict_in(user_expected, user)
 
-    assert_dict_in({"user_id": user["id"], "is_buy": False}, req)
+    assert buy_req["user_id"] == user["id"]
+    assert sell_req["user_id"] == user["id"]
 
 
 def test_create__user_exists():

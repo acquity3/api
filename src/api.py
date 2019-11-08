@@ -136,6 +136,7 @@ async def get_all_securities(request):
 
 
 @blueprint.patch("/security/<id>")
+@expects_json_object
 @auth_required
 async def edit_security_market_price(request, user, id):
     return json(
