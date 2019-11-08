@@ -103,6 +103,14 @@ class ChatSocketService(socketio.AsyncNamespace):
         )
         await self.emit("res_decline_offer", offer, room=room_id)
 
+    async def on_req_reveal_identity(self, sid, data):
+        user_id = await self._authenticate(token=data.get("token"))
+        room_id = data.get("chat_room_id")
+
+        self.chat_room_service.reveal_identity(chat_room_id=room_id, user_id=user_id)
+
+        await self.emit("res_reveal_identity", {}, room=room_id)
+
     async def on_req_other_party_details(self, sid, data):
         user_id = await self._authenticate(token=data.get("token"))
         room_id = data.get("chat_room_id")

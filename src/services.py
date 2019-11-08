@@ -845,8 +845,10 @@ class ChatRoomService:
         with session_scope() as session:
             chat_room = session.query(ChatRoom).get(chat_room_id).asdict()
 
-        if not chat_room["is_revealed"]:
-            raise ResourceNotOwnedException("Other party has not revealed.")
+        if not (chat_room["is_buyer_revealed"] and chat_room["is_seller_revealed"]):
+            raise ResourceNotOwnedException(
+                "Both parties have not revealed their information."
+            )
 
         if chat_room["seller_id"] == user_id:
             other_party_user_id = chat_room["buyer_id"]
@@ -858,6 +860,21 @@ class ChatRoomService:
         with session_scope() as session:
             user = session.query(User).get(other_party_user_id).asdict()
             return {k: user[k] for k in ["email", "full_name"]}
+
+    def reveal_identity(self, chat_room_id, user_id):
+        with session_scope() as session:
+            chat_room = session.query(ChatRoom).get(chat_room_id)
+
+            if user_id not in (chat_room.seller_id, chat_room.buyer_id):
+                raise ResourceNotOwnedException("Wrong user.")
+
+            if not chat_room.is_deal_closed:
+                raise UnauthorizedException("Need to have an accepted offer.")
+
+            if chat_room.seller_id == user_id:
+                chat_room.is_seller_revealed = True
+            elif chat_room.buyer_id == user_id:
+                chat_room.is_buyer_revealed = True
 
     @staticmethod
     def _serialize_chat_room(chat_room, buy_order, sell_order):
