@@ -880,6 +880,7 @@ class ChatRoomService:
     def _serialize_chat_room(chat_room, buy_order, sell_order):
         return {
             "chat_room_id": chat_room.get("id"),
+            "friendly_name": chat_room.get("friendly_name"),
             "is_deal_closed": chat_room.get("is_deal_closed"),
             "seller_price": sell_order.get("price"),
             "seller_number_of_shares": sell_order.get("number_of_shares"),

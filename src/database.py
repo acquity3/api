@@ -19,6 +19,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 
 from src.config import APP_CONFIG
+from src.utils import generate_friendly_name
 
 _base = declarative_base()
 
@@ -191,6 +192,7 @@ class ChatRoom(Base):
     is_deal_closed = Column(Boolean, nullable=False, server_default="f")
     is_buyer_revealed = Column(Boolean, nullable=False, server_default="f")
     is_seller_revealed = Column(Boolean, nullable=False, server_default="f")
+    friendly_name = Column(String, nullable=False, default=generate_friendly_name)
 
     __table_args__ = (UniqueConstraint("seller_id", "buyer_id"),)
 
