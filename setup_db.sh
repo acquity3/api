@@ -5,5 +5,3 @@ sudo -u postgres psql -c "DROP ROLE acquity"
 sudo -u postgres psql -c "CREATE ROLE acquity WITH LOGIN PASSWORD 'acquity'"
 sudo -u postgres psql -c "CREATE DATABASE acquity"
 sudo -u postgres psql -c "CREATE DATABASE acquity_test"
-./run_migrations.sh
-env PYTHONPATH=. poetry run python src/seeds.py

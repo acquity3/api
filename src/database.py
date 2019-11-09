@@ -193,6 +193,7 @@ class ChatRoom(Base):
     is_buyer_revealed = Column(Boolean, nullable=False, server_default="f")
     is_seller_revealed = Column(Boolean, nullable=False, server_default="f")
     friendly_name = Column(String, nullable=False, default=generate_friendly_name)
+    match_id = Column(UUID, ForeignKey("matches.id"), nullable=False)
 
     __table_args__ = (UniqueConstraint("seller_id", "buyer_id"),)
 

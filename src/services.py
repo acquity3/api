@@ -456,11 +456,14 @@ class MatchService:
         with session_scope() as session:
             for buy_order_id, sell_order_id in match_results:
                 match = Match(buy_order_id=buy_order_id, sell_order_id=sell_order_id)
+                session.add(match)
+                session.flush()
                 chat_room = ChatRoom(
                     seller_id=sell_order_to_seller_dict[sell_order_id],
                     buyer_id=buy_order_to_buyer_dict[buy_order_id],
+                    match_id=str(match.id),
                 )
-                session.add_all([match, chat_room])
+                session.add(chat_room)
 
             session.query(Round).get(round_id).is_concluded = True
 
@@ -739,16 +742,17 @@ class ChatService:
                 chat_room=chat_room, user_id=user_id, user_type=user_type
             )
             results = (
-                session.query(ChatRoom, BuyOrder, SellOrder)
+                session.query(ChatRoom, Match, BuyOrder, SellOrder)
                 .filter(ChatRoom.id == chat_room_id)
-                .outerjoin(BuyOrder, ChatRoom.buyer_id == BuyOrder.user_id)
-                .outerjoin(SellOrder, ChatRoom.seller_id == SellOrder.user_id)
+                .outerjoin(Match, ChatRoom.match_id == Match.id)
+                .outerjoin(BuyOrder, Match.buy_order_id == BuyOrder.id)
+                .outerjoin(SellOrder, Match.sell_order_id == SellOrder.id)
                 .one()
             )
 
             chat_room = results[0].asdict()
-            buy_order = results[1].asdict()
-            sell_order = results[2].asdict()
+            buy_order = results[2].asdict()
+            sell_order = results[3].asdict()
 
             offers = OfferService(self.config).get_chat_offers(
                 user_id=user_id, chat_room_id=chat_room_id, user_type=user_type
@@ -830,8 +834,8 @@ class ChatRoomService:
                 data.append(
                     ChatRoomService._serialize_chat_room(
                         chat_room=result[0].asdict(),
-                        buy_order=result[1].asdict(),
-                        sell_order=result[2].asdict(),
+                        buy_order=result[2].asdict(),
+                        sell_order=result[3].asdict(),
                     )
                 )
         return sorted(data, key=lambda item: item["updated_at"], reverse=True)
@@ -878,12 +882,13 @@ class ChatRoomService:
         )
         archive_queries = ChatRoomService._get_archive_filter(is_archived=is_archived)
         results = (
-            session.query(ChatRoom, BuyOrder, SellOrder)
+            session.query(ChatRoom, Match, BuyOrder, SellOrder)
             .filter(user_type_queries)
             .outerjoin(ArchivedChatRoom, ChatRoom.id == ArchivedChatRoom.chat_room_id)
             .filter(archive_queries)
-            .outerjoin(BuyOrder, ChatRoom.buyer_id == BuyOrder.user_id)
-            .outerjoin(SellOrder, ChatRoom.seller_id == SellOrder.user_id)
+            .outerjoin(Match, ChatRoom.match_id == Match.id)
+            .outerjoin(BuyOrder, Match.buy_order_id == BuyOrder.id)
+            .outerjoin(SellOrder, Match.sell_order_id == SellOrder.id)
             .all()
         )
         return results

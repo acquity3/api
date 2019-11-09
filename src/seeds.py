@@ -3,6 +3,7 @@ from datetime import datetime
 from src.database import (
     BuyOrder,
     ChatRoom,
+    Match,
     Round,
     Security,
     SellOrder,
@@ -61,26 +62,6 @@ def seed_db():
             session.query(User).filter_by(email="brandon.ng10@yahoo.com.sg").first().id
         )
 
-        # create chatrooms
-        if (
-            session.query(ChatRoom).filter_by(seller_id=str(brandon_gmail_id)).count()
-            == 0
-        ):
-            session.add(
-                ChatRoom(
-                    buyer_id=str(brandon_yahoo_id), seller_id=str(brandon_gmail_id)
-                )
-            )
-        if (
-            session.query(ChatRoom).filter_by(seller_id=str(brandon_yahoo_id)).count()
-            == 0
-        ):
-            session.add(
-                ChatRoom(
-                    buyer_id=str(brandon_gmail_id), seller_id=str(brandon_yahoo_id)
-                )
-            )
-
         # adds security
         if session.query(Security).filter_by(name="Grab").count() == 0:
             session.add(Security(name="Grab"))
@@ -119,6 +100,12 @@ def seed_db():
                     round_id=str(current_round_id),
                 )
             )
+        brandon_gmail_buy_order_id = (
+            session.query(BuyOrder).filter_by(user_id=str(brandon_gmail_id)).first().id
+        )
+        brandon_yahoo_buy_order_id = (
+            session.query(BuyOrder).filter_by(user_id=str(brandon_yahoo_id)).first().id
+        )
 
         # create sell orders
         if (
@@ -145,6 +132,62 @@ def seed_db():
                     number_of_shares=400,
                     price=10,
                     round_id=str(current_round_id),
+                )
+            )
+        brandon_gmail_sell_order_id = (
+            session.query(SellOrder).filter_by(user_id=str(brandon_gmail_id)).first().id
+        )
+        brandon_yahoo_sell_order_id = (
+            session.query(SellOrder).filter_by(user_id=str(brandon_yahoo_id)).first().id
+        )
+
+        if session.query(Match).count() == 0:
+            session.add(
+                Match(
+                    buy_order_id=str(brandon_gmail_buy_order_id),
+                    sell_order_id=str(brandon_yahoo_sell_order_id),
+                )
+            )
+            session.add(
+                Match(
+                    buy_order_id=str(brandon_yahoo_buy_order_id),
+                    sell_order_id=str(brandon_gmail_sell_order_id),
+                )
+            )
+
+        match_A = (
+            session.query(Match)
+            .filter_by(sell_order_id=str(brandon_gmail_sell_order_id))
+            .first()
+            .id
+        )
+        match_B = (
+            session.query(Match)
+            .filter_by(sell_order_id=str(brandon_yahoo_sell_order_id))
+            .first()
+            .id
+        )
+        # create chatrooms
+        if (
+            session.query(ChatRoom).filter_by(seller_id=str(brandon_gmail_id)).count()
+            == 0
+        ):
+            session.add(
+                ChatRoom(
+                    buyer_id=str(brandon_yahoo_id),
+                    seller_id=str(brandon_gmail_id),
+                    match_id=str(match_A),
+                )
+            )
+        if (
+            session.query(ChatRoom).filter_by(seller_id=str(brandon_yahoo_id)).count()
+            == 0
+        ):
+            session.add(
+                ChatRoom(
+                    buyer_id=str(brandon_gmail_id),
+                    seller_id=str(brandon_yahoo_id),
+                    match_id=str(match_B),
                 )
             )
 
