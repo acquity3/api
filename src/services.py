@@ -2,6 +2,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 
 import requests
+from sqlalchemy import and_
 from sqlalchemy.sql import func
 
 from src.database import (
@@ -821,6 +822,21 @@ class ChatRoomService:
     def __init__(self, config):
         self.config = config
 
+    def archive_room(self, user_id, chat_room_id):
+        with session_scope() as session:
+            archived_chat_room = ArchivedChatRoom(
+                user_id=user_id, chat_room_id=chat_room_id
+            )
+            session.add(archived_chat_room)
+        return {"chat_room_id": chat_room_id}
+
+    def unarchive_room(self, user_id, chat_room_id):
+        with session_scope() as session:
+            session.query(ArchivedChatRoom).filter_by(
+                user_id=user_id, chat_room_id=chat_room_id
+            ).delete(synchronize_session=False)
+        return {"chat_room_id": chat_room_id}
+
     def get_chat_rooms(self, user_id, user_type, is_archived):
         data = []
         with session_scope() as session:
@@ -884,7 +900,13 @@ class ChatRoomService:
         results = (
             session.query(ChatRoom, Match, BuyOrder, SellOrder)
             .filter(user_type_queries)
-            .outerjoin(ArchivedChatRoom, ChatRoom.id == ArchivedChatRoom.chat_room_id)
+            .outerjoin(
+                ArchivedChatRoom,
+                and_(
+                    ChatRoom.id == ArchivedChatRoom.chat_room_id,
+                    ArchivedChatRoom.user_id == user_id,
+                ),
+            )
             .filter(archive_queries)
             .outerjoin(Match, ChatRoom.match_id == Match.id)
             .outerjoin(BuyOrder, Match.buy_order_id == BuyOrder.id)
