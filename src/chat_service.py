@@ -1,6 +1,5 @@
 import socketio
 
-from src.exceptions import AcquityException
 from src.services import (
     ChatRoomService,
     ChatService,
@@ -8,23 +7,7 @@ from src.services import (
     OfferService,
     UserService,
 )
-
-
-def handle_acquity_exceptions(emit_message):
-    def decorator(f):
-        async def decorated(self, sid, *args, **kwargs):
-            try:
-                return await f(self, sid, *args, **kwargs)
-            except AcquityException as e:
-                await self.emit(
-                    emit_message,
-                    {"status_code": e.status_code, "message": e.message},
-                    room=sid,
-                )
-
-        return decorated
-
-    return decorator
+from src.utils import handle_acquity_exceptions
 
 
 class ChatSocketService(socketio.AsyncNamespace):
@@ -50,7 +33,9 @@ class ChatSocketService(socketio.AsyncNamespace):
         )
         for room in rooms:
             self.enter_room(sid, room.get("chat_room_id"))
+            print("enter_room", sid, room.get("chat_room_id"))
         self.enter_room(sid, user_id)
+        print("enter_room", sid, user_id)
         return rooms
 
     async def on_connect(self, sid, environ):
@@ -58,6 +43,12 @@ class ChatSocketService(socketio.AsyncNamespace):
 
     async def on_disconnect(self, sid):
         return {"data": "success"}
+
+    @handle_acquity_exceptions("err_chats")
+    async def on_req_chats(self, sid, data):
+        user_id = await self._authenticate(token=data.get("token"))
+        res = await self.chat_service.get_chat_by_users(user_id=user_id)
+        await self.emit("res_chats", res, room=user_id)
 
     @handle_acquity_exceptions("err_chat_rooms")
     async def on_req_chat_rooms(self, sid, data):
@@ -68,6 +59,7 @@ class ChatSocketService(socketio.AsyncNamespace):
             user_type=data.get("user_type"),
             is_archived=data.get("is_archived"),
         )
+        print("on_req_chat_rooms", self, sid, data, rooms)
         await self.emit("res_chat_rooms", rooms, room=user_id)
 
     @handle_acquity_exceptions("err_conversation")
@@ -78,6 +70,7 @@ class ChatSocketService(socketio.AsyncNamespace):
             chat_room_id=data.get("chat_room_id"),
             user_type=data.get("user_type"),
         )
+        print("on_req_conversation", self, sid, data, conversation)
         await self.emit("res_conversation", conversation, room=user_id)
 
     @handle_acquity_exceptions("err_new_message")
@@ -91,6 +84,7 @@ class ChatSocketService(socketio.AsyncNamespace):
             user_type=data.get("user_type"),
         )
 
+        print("on_req_new_message", self, sid, data, chat)
         await self.emit("res_new_message", chat, room=room_id)
 
     @handle_acquity_exceptions("err_new_offer")
@@ -104,6 +98,7 @@ class ChatSocketService(socketio.AsyncNamespace):
             number_of_shares=data.get("number_of_shares"),
             user_type=data.get("user_type"),
         )
+        print("on_req_new_offer", self, sid, data, offer)
         await self.emit("res_new_offer", offer, room=room_id)
 
     @handle_acquity_exceptions("err_accept_offer")
@@ -116,6 +111,7 @@ class ChatSocketService(socketio.AsyncNamespace):
             user_id=user_id,
             user_type=data.get("user_type"),
         )
+        print("on_req_accept_offer", self, sid, data, offer)
         await self.emit("res_accept_offer", offer, room=room_id)
 
     @handle_acquity_exceptions("err_decline_offer")
@@ -128,6 +124,7 @@ class ChatSocketService(socketio.AsyncNamespace):
             user_id=user_id,
             user_type=data.get("user_type"),
         )
+        print("on_req_decline_offer", self, sid, data, offer)
         await self.emit("res_decline_offer", offer, room=room_id)
 
     @handle_acquity_exceptions("err_archive_chatroom")
@@ -136,6 +133,7 @@ class ChatSocketService(socketio.AsyncNamespace):
         archived_result = self.chat_room_service.archive_room(
             user_id=user_id, chat_room_id=data.get("chat_room_id")
         )
+        print("on_req_archive_chatroom", self, sid, data, archived_result)
         await self.emit("res_archive_chatroom", archived_result, room=user_id)
 
     @handle_acquity_exceptions("err_unarchive_chatroom")
@@ -144,6 +142,7 @@ class ChatSocketService(socketio.AsyncNamespace):
         unarchived_result = self.chat_room_service.unarchive_room(
             user_id=user_id, chat_room_id=data.get("chat_room_id")
         )
+        print("on_req_unarchive_chatroom", self, sid, data, unarchived_result)
         await self.emit("res_unarchive_chatroom", unarchived_result, room=user_id)
 
     @handle_acquity_exceptions("err_reveal_identity")
@@ -153,6 +152,7 @@ class ChatSocketService(socketio.AsyncNamespace):
 
         self.chat_room_service.reveal_identity(chat_room_id=room_id, user_id=user_id)
 
+        print("on_req_reveal_identity", self, sid, data)
         await self.emit("res_reveal_identity", {}, room=room_id)
 
     @handle_acquity_exceptions("err_other_party_details")
@@ -164,4 +164,5 @@ class ChatSocketService(socketio.AsyncNamespace):
             chat_room_id=room_id, user_id=user_id
         )
 
+        print("on_req_other_party_details", self, sid, data)
         await self.emit("res_other_party_details", other_party_details, room=room_id)
