@@ -713,7 +713,16 @@ class ChatService:
             res = {}
 
             for chat_room in chat_rooms:
-                res[str(chat_room.id)] = chat_room.asdict()
+                chat_room_dict = chat_room.asdict()
+
+                if chat_room_dict["buyer_id"] == user_id:
+                    chat_room_dict["is_revealed"] = chat_room_dict["is_buyer_revealed"]
+                else:
+                    chat_room_dict["is_revealed"] = chat_room_dict["is_seller_revealed"]
+                chat_room_dict.pop("is_buyer_revealed")
+                chat_room_dict.pop("is_seller_revealed")
+
+                res[str(chat_room.id)] = chat_room_dict
                 res[str(chat_room.id)]["chats"] = []
 
             for chat in chats:

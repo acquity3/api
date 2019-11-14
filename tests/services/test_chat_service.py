@@ -16,11 +16,21 @@ chat_service = ChatService(config=APP_CONFIG)
 
 def test_get_chats_by_user_id():
     me = create_user()
-    chat_room1 = create_chat_room("1", buyer_id=me["id"])
-    chat_room2 = create_chat_room("2", seller_id=me["id"])
+    chat_room1 = create_chat_room("1", buyer_id=me["id"], is_buyer_revealed=False)
+    chat_room2 = create_chat_room("2", seller_id=me["id"], is_seller_revealed=True)
+    create_chat_room("127")
 
-    archived_chat_room = create_chat_room("3", seller_id=me["id"])
+    archived_chat_room = create_chat_room(
+        "3", seller_id=me["id"], is_seller_revealed=False
+    )
     create_archived_chat_room(chat_room_id=archived_chat_room["id"], user_id=me["id"])
+
+    chat_room1["is_revealed"] = False
+    chat_room2["is_revealed"] = True
+    archived_chat_room["is_revealed"] = False
+    for r in [chat_room1, chat_room2, archived_chat_room]:
+        r.pop("is_buyer_revealed")
+        r.pop("is_seller_revealed")
 
     chat_room1_chat1 = create_chat(
         "x",
