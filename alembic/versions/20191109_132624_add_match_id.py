@@ -23,7 +23,6 @@ def upgrade():
     op.add_column("chat_rooms", sa.Column("match_id", postgresql.UUID(), nullable=True))
     bind = op.get_bind()
     session = sa.orm.Session(bind=bind)
-    matches = session.query(Match).all()
     matches = (
         session.query(Match, BuyOrder, SellOrder)
         .outerjoin(BuyOrder, Match.buy_order_id == BuyOrder.id)

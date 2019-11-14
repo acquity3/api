@@ -1,10 +1,13 @@
 from datetime import datetime, timedelta
 
 from src.database import (
+    ArchivedChatRoom,
     BannedPair,
     BuyOrder,
+    Chat,
     ChatRoom,
     Match,
+    Offer,
     Round,
     Security,
     SellOrder,
@@ -60,6 +63,14 @@ def attributes_for_round(id=0, **kwargs):
         "is_concluded": False,
         **kwargs,
     }
+
+
+def attributes_for_chat(id=0, **kwargs):
+    return {"message": f"asdf{id}", **kwargs}
+
+
+def attributes_for_offer(id=0, **kwargs):
+    return {"number_of_shares": 20 + int(id), "price": 30 + int(id), **kwargs}
 
 
 def create_user(id="", **kwargs):
@@ -120,8 +131,8 @@ def create_match(id=0, **kwargs):
             **combine_dicts(
                 attributes_for_match(id, **kwargs),
                 {
-                    "buy_order_id": lambda: create_buy_order(id)["id"],
-                    "sell_order_id": lambda: create_sell_order(id)["id"],
+                    "buy_order_id": lambda: create_buy_order(id + "0")["id"],
+                    "sell_order_id": lambda: create_sell_order(id + "1")["id"],
                 },
             )
         )
@@ -154,12 +165,69 @@ def create_banned_pair(id=0, **kwargs):
         return banned_pair.asdict()
 
 
-def create_chatroom(**kwargs):
+def create_chat_room(id=0, **kwargs):
     with session_scope() as session:
-        chat_room = ChatRoom(**kwargs)
+        chat_room = ChatRoom(
+            **combine_dicts(
+                kwargs,
+                {
+                    "buyer_id": lambda: create_user(str(id) + "0")["id"],
+                    "seller_id": lambda: create_user(str(id) + "1")["id"],
+                    "match_id": lambda: create_match(str(id) + "2")["id"],
+                },
+            )
+        )
         session.add(chat_room)
         session.commit()
         return chat_room.asdict()
+
+
+def create_archived_chat_room(id=0, **kwargs):
+    with session_scope() as session:
+        archived_chat_room = ArchivedChatRoom(
+            **combine_dicts(
+                kwargs,
+                {
+                    "user_id": lambda: create_user(str(id) + "0")["id"],
+                    "chat_room_id": lambda: create_chat_room(str(id) + "1")["id"],
+                },
+            )
+        )
+        session.add(archived_chat_room)
+        session.commit()
+        return archived_chat_room.asdict()
+
+
+def create_chat(id=0, **kwargs):
+    with session_scope() as session:
+        chat = Chat(
+            **combine_dicts(
+                attributes_for_chat(id, **kwargs),
+                {
+                    "chat_room_id": lambda: create_chat_room(str(id) + "0")["id"],
+                    "author_id": lambda: create_user(str(id) + "1")["id"],
+                },
+            )
+        )
+        session.add(chat)
+        session.commit()
+        return chat.asdict()
+
+
+def create_offer(id=0, **kwargs):
+    with session_scope() as session:
+        offer = Offer(
+            **combine_dicts(
+                attributes_for_offer(id, **kwargs),
+                {
+                    "chat_room_id": lambda: create_chat_room(str(id) + "0")["id"],
+                    "author_id": lambda: create_user(str(id) + "1")["id"],
+                },
+            )
+        )
+        session.add(offer)
+        session.commit()
+        return offer.asdict()
 
 
 def create_user_request(id=0, **kwargs):

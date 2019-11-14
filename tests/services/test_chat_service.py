@@ -1,132 +1,103 @@
+from datetime import datetime, timedelta
+
 from src.config import APP_CONFIG
-from src.services import ChatRoomService, ChatService
+from src.services import ChatService
 from tests.fixtures import (
-    create_buy_order,
-    create_chatroom,
-    create_match,
-    create_sell_order,
+    create_archived_chat_room,
+    create_chat,
+    create_chat_room,
+    create_offer,
     create_user,
 )
+from tests.utils import assert_dict_in
 
-chat_room_service = ChatRoomService(config=APP_CONFIG)
 chat_service = ChatService(config=APP_CONFIG)
 
 
-def test_create_chat_conversation():
-    buyer = create_user("1", can_buy=False)
-    seller = create_user("2", can_sell=False)
-    buy_order = create_buy_order("1", user_id=str(buyer["id"]))
-    sell_order = create_sell_order("2", user_id=str(seller["id"]))
-    match = create_match(
-        "1", buy_order_id=str(buy_order["id"]), sell_order_id=str(sell_order["id"])
+def test_get_chats_by_user_id():
+    me = create_user()
+    chat_room1 = create_chat_room("1", buyer_id=me["id"])
+    chat_room2 = create_chat_room("2", seller_id=me["id"])
+
+    archived_chat_room = create_chat_room("3", seller_id=me["id"])
+    create_archived_chat_room(chat_room_id=archived_chat_room["id"], user_id=me["id"])
+
+    chat_room1_chat1 = create_chat(
+        "x",
+        chat_room_id=chat_room1["id"],
+        author_id=me["id"],
+        created_at=datetime.now() + timedelta(hours=2),
     )
-    chat_room = create_chatroom(
-        buyer_id=buyer["id"], seller_id=seller["id"], match_id=match["id"]
+    chat_room1_chat2 = create_chat(
+        "4",
+        chat_room_id=chat_room1["id"],
+        author_id=chat_room1["seller_id"],
+        created_at=datetime.now() + timedelta(hours=3),
+    )
+    chat_room1_offer = create_offer(
+        "5",
+        chat_room_id=chat_room1["id"],
+        author_id=me["id"],
+        created_at=datetime.now() + timedelta(hours=1),
+    )
+    chat_room2_chat1 = create_chat(
+        "6",
+        chat_room_id=chat_room2["id"],
+        author_id=me["id"],
+        created_at=datetime.now() + timedelta(hours=2),
+    )
+    chat_room2_chat2 = create_chat(
+        "7",
+        chat_room_id=chat_room2["id"],
+        author_id=chat_room2["buyer_id"],
+        created_at=datetime.now() + timedelta(hours=3),
+    )
+    chat_room2_offer = create_offer(
+        "8",
+        chat_room_id=chat_room2["id"],
+        author_id=me["id"],
+        created_at=datetime.now() + timedelta(hours=1),
+    )
+    archived_chat_room_chat1 = create_chat(
+        "9",
+        chat_room_id=archived_chat_room["id"],
+        author_id=me["id"],
+        created_at=datetime.now() + timedelta(hours=2),
+    )
+    archived_chat_room_chat2 = create_chat(
+        "315",
+        chat_room_id=archived_chat_room["id"],
+        author_id=archived_chat_room["buyer_id"],
+        created_at=datetime.now() + timedelta(hours=3),
+    )
+    archived_chat_room_offer = create_offer(
+        "203",
+        chat_room_id=archived_chat_room["id"],
+        author_id=me["id"],
+        created_at=datetime.now() + timedelta(hours=1),
     )
 
-    chat_conversation = chat_service.get_conversation(
-        user_id=seller["id"], chat_room_id=chat_room["id"], user_type="seller"
-    )
-    assert chat_conversation["conversation"] == []
+    res = chat_service.get_chats_by_user_id(user_id=me["id"])
 
+    assert len(res["archived"]) == 1
+    res_archived_chat_room = res["archived"][0]
+    assert_dict_in(archived_chat_room, res_archived_chat_room)
+    res_archived_chat_room_chats = res_archived_chat_room["chats"]
+    assert_dict_in(archived_chat_room_offer, res_archived_chat_room_chats[0])
+    assert_dict_in(archived_chat_room_chat1, res_archived_chat_room_chats[1])
+    assert_dict_in(archived_chat_room_chat2, res_archived_chat_room_chats[2])
 
-def test_create_new_message__buyer_create():
-    buyer = create_user("1", can_buy=False)
-    seller = create_user("2", can_sell=False)
-    buy_order = create_buy_order("1", user_id=str(buyer["id"]))
-    sell_order = create_sell_order("2", user_id=str(seller["id"]))
-    match = create_match(
-        "1", buy_order_id=str(buy_order["id"]), sell_order_id=str(sell_order["id"])
-    )
-    chat_room = create_chatroom(
-        buyer_id=buyer["id"], seller_id=seller["id"], match_id=match["id"]
-    )
-    chat_service.create_new_message(
-        chat_room_id=chat_room["id"],
-        message="hello",
-        author_id=buyer["id"],
-        user_type="buyer",
-    )
+    assert len(res["unarchived"]) == 2
+    unarchived_chat_rooms = res["unarchived"]
 
-    chat_conversation = chat_service.get_conversation(
-        user_id=seller["id"], chat_room_id=chat_room["id"], user_type="seller"
-    )
-    assert chat_conversation["conversation"][0]["message"] == "hello"
-    assert chat_conversation["conversation"][0]["user_type"] == "buyer"
+    assert_dict_in(chat_room2, unarchived_chat_rooms[0])
+    res_chat_room2_chats = unarchived_chat_rooms[0]["chats"]
+    assert_dict_in(chat_room2_offer, res_chat_room2_chats[0])
+    assert_dict_in(chat_room2_chat1, res_chat_room2_chats[1])
+    assert_dict_in(chat_room2_chat2, res_chat_room2_chats[2])
 
-    chat_conversation = chat_service.get_conversation(
-        user_id=buyer["id"], chat_room_id=chat_room["id"], user_type="buyer"
-    )
-    assert chat_conversation["conversation"][0]["message"] == "hello"
-    assert chat_conversation["conversation"][0]["user_type"] == "buyer"
-
-
-def test_create_new_message__seller_create():
-    buyer = create_user("1", can_buy=False)
-    seller = create_user("2", can_sell=False)
-    buy_order = create_buy_order("1", user_id=str(buyer["id"]))
-    sell_order = create_sell_order("2", user_id=str(seller["id"]))
-    match = create_match(
-        "1", buy_order_id=str(buy_order["id"]), sell_order_id=str(sell_order["id"])
-    )
-    chat_room = create_chatroom(
-        buyer_id=buyer["id"], seller_id=seller["id"], match_id=match["id"]
-    )
-    chat_service.create_new_message(
-        chat_room_id=chat_room["id"],
-        message="hello",
-        author_id=seller["id"],
-        user_type="seller",
-    )
-
-    chat_conversation = chat_service.get_conversation(
-        user_id=seller["id"], chat_room_id=chat_room["id"], user_type="seller"
-    )
-    assert chat_conversation["conversation"][0]["message"] == "hello"
-    assert chat_conversation["conversation"][0]["user_type"] == "seller"
-
-    chat_conversation = chat_service.get_conversation(
-        user_id=buyer["id"], chat_room_id=chat_room["id"], user_type="buyer"
-    )
-    assert chat_conversation["conversation"][0]["message"] == "hello"
-    assert chat_conversation["conversation"][0]["user_type"] == "seller"
-
-
-def test_create_new_conversation__multiple_offers():
-    buyer = create_user("1", can_buy=False)
-    seller = create_user("2", can_sell=False)
-    buy_order = create_buy_order("1", user_id=str(buyer["id"]))
-    create_buy_order("2", user_id=str(buyer["id"]))
-    sell_order = create_sell_order("3", user_id=str(seller["id"]))
-    create_sell_order("4", user_id=str(seller["id"]))
-    match = create_match(
-        "1", buy_order_id=str(buy_order["id"]), sell_order_id=str(sell_order["id"])
-    )
-    chat_room = create_chatroom(
-        buyer_id=buyer["id"], seller_id=seller["id"], match_id=match["id"]
-    )
-
-    chat_conversation = chat_service.get_conversation(
-        user_id=seller["id"], chat_room_id=chat_room["id"], user_type="seller"
-    )
-    assert chat_conversation["conversation"] == []
-
-
-def test_create_new_conversation__multiple_users():
-    buyer = create_user("1", can_buy=False)
-    create_user("2", can_buy=False)
-    seller = create_user("3", can_sell=False)
-    create_user("4", can_sell=False)
-    buy_order = create_buy_order("1", user_id=str(buyer["id"]))
-    sell_order = create_sell_order("2", user_id=str(seller["id"]))
-    match = create_match(
-        "1", buy_order_id=str(buy_order["id"]), sell_order_id=str(sell_order["id"])
-    )
-    chat_room = create_chatroom(
-        buyer_id=buyer["id"], seller_id=seller["id"], match_id=match["id"]
-    )
-
-    chat_conversation = chat_service.get_conversation(
-        user_id=seller["id"], chat_room_id=chat_room["id"], user_type="seller"
-    )
-    assert chat_conversation["conversation"] == []
+    assert_dict_in(chat_room1, unarchived_chat_rooms[1])
+    res_chat_room1_chats = unarchived_chat_rooms[1]["chats"]
+    assert_dict_in(chat_room1_offer, res_chat_room1_chats[0])
+    assert_dict_in(chat_room1_chat1, res_chat_room1_chats[1])
+    assert_dict_in(chat_room1_chat2, res_chat_room1_chats[2])

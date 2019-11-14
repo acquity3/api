@@ -197,6 +197,10 @@ class ChatRoom(Base):
 
     __table_args__ = (UniqueConstraint("seller_id", "buyer_id"),)
 
+    @property
+    def additional_things_to_dict(self):
+        return {"is_buyer_revealed": None, "is_seller_revealed": None}
+
 
 class ArchivedChatRoom(Base):
     __tablename__ = "archived_chat_rooms"

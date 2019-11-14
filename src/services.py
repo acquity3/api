@@ -697,8 +697,62 @@ class ChatService:
     def __init__(self, config):
         self.config = config
 
-    def get_chat_by_users(self, user_id):
-        pass
+    @validate_input({"user_id": UUID_RULE})
+    def get_chats_by_user_id(self, user_id):
+        with session_scope() as session:
+            chat_rooms = (
+                session.query(ChatRoom)
+                .filter(
+                    (ChatRoom.buyer_id == user_id) | (ChatRoom.seller_id == user_id)
+                )
+                .all()
+            )
+            chats = session.query(Chat).all()
+            offers = session.query(Offer).all()
+
+            res = {}
+
+            for chat_room in chat_rooms:
+                res[str(chat_room.id)] = chat_room.asdict()
+                res[str(chat_room.id)]["chats"] = []
+
+            for chat in chats:
+                if chat.chat_room_id in res:
+                    res[chat.chat_room_id]["chats"].append(
+                        {"type": "chat", **chat.asdict()}
+                    )
+            for offer in offers:
+                if offer.chat_room_id in res:
+                    res[offer.chat_room_id]["chats"].append(
+                        {"type": "offer", **offer.asdict()}
+                    )
+
+            for v in res.values():
+                v["chats"].sort(key=lambda x: x["created_at"])
+
+            archived_room_ids = set(
+                r.chat_room_id
+                for r in session.query(ArchivedChatRoom)
+                .filter_by(user_id=user_id)
+                .all()
+            )
+
+        unarchived_res = []
+        archived_res = []
+        for chat_room_id, room in res.items():
+            if chat_room_id in archived_room_ids:
+                archived_res.append(room)
+            else:
+                unarchived_res.append(room)
+
+        return {
+            "archived": sorted(
+                archived_res, key=lambda x: x["updated_at"], reverse=True
+            ),
+            "unarchived": sorted(
+                unarchived_res, key=lambda x: x["updated_at"], reverse=True
+            ),
+        }
 
     def create_new_message(self, chat_room_id, message, author_id, user_type):
         with session_scope() as session:
@@ -718,65 +772,12 @@ class ChatService:
                 session=session, chat_room=chat_room, message=message
             )
 
-            return ChatService._serialize_chat_message(
+            return self._serialize_chat_message(
                 chat_room_id=chat_room_id,
                 message=message,
                 user_type=user_type,
                 user_id=author_id,
             )
-
-    def get_chat_messages(self, chat_room_id, user_type, user_id):
-        with session_scope() as session:
-            results = session.query(Chat).filter_by(chat_room_id=chat_room_id).all()
-            data = []
-            for result in results:
-                data.append(
-                    ChatService._serialize_message(
-                        message=result.asdict(), user_type=user_type, user_id=user_id
-                    )
-                )
-            return data
-
-    def get_conversation(self, user_id, chat_room_id, user_type):
-        with session_scope() as session:
-            chat_room = session.query(ChatRoom).get(chat_room_id)
-            if chat_room is None:
-                raise ResourceNotFoundException("Chat room not found")
-            ChatService._verify_user(
-                chat_room=chat_room, user_id=user_id, user_type=user_type
-            )
-            results = (
-                session.query(ChatRoom, Match, BuyOrder, SellOrder)
-                .filter(ChatRoom.id == chat_room_id)
-                .outerjoin(Match, ChatRoom.match_id == Match.id)
-                .outerjoin(BuyOrder, Match.buy_order_id == BuyOrder.id)
-                .outerjoin(SellOrder, Match.sell_order_id == SellOrder.id)
-                .one()
-            )
-
-            chat_room = results[0].asdict()
-            buy_order = results[2].asdict()
-            sell_order = results[3].asdict()
-
-            offers = OfferService(self.config).get_chat_offers(
-                user_id=user_id, chat_room_id=chat_room_id, user_type=user_type
-            )
-            messages = self.get_chat_messages(
-                chat_room_id=chat_room_id, user_type=user_type, user_id=user_id
-            )
-
-            return {
-                "chat_room_id": chat_room_id,
-                "seller_price": sell_order.get("price"),
-                "seller_number_of_shares": sell_order.get("number_of_shares"),
-                "buyer_price": buy_order.get("price"),
-                "buyer_number_of_shares": buy_order.get("number_of_shares"),
-                "updated_at": datetime.timestamp(chat_room.get("updated_at")) * 1000,
-                "is_deal_closed": chat_room.get("is_deal_closed"),
-                "conversation": sorted(
-                    messages + offers, key=lambda item: item["created_at"]
-                ),
-            }
 
     @staticmethod
     def _serialize_message(message, user_type, user_id):
@@ -839,25 +840,6 @@ class ChatRoomService:
                 user_id=user_id, chat_room_id=chat_room_id
             ).delete(synchronize_session=False)
         return {"chat_room_id": chat_room_id}
-
-    def get_chat_rooms(self, user_id, user_type, is_archived):
-        data = []
-        with session_scope() as session:
-            results = ChatRoomService._filter_chat_rooms_by_archive(
-                user_id=user_id,
-                user_type=user_type,
-                session=session,
-                is_archived=is_archived,
-            )
-            for result in results:
-                data.append(
-                    ChatRoomService._serialize_chat_room(
-                        chat_room=result[0].asdict(),
-                        buy_order=result[2].asdict(),
-                        sell_order=result[3].asdict(),
-                    )
-                )
-        return sorted(data, key=lambda item: item["updated_at"], reverse=True)
 
     def get_other_party_details(self, chat_room_id, user_id):
         with session_scope() as session:

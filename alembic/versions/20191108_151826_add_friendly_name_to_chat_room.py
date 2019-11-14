@@ -8,7 +8,6 @@ Create Date: 2019-11-08 15:18:26.777623
 import sqlalchemy as sa
 
 from alembic import op
-from src.database import ChatRoom
 from src.utils import generate_friendly_name
 
 # revision identifiers, used by Alembic.
@@ -24,8 +23,10 @@ def upgrade():
 
     bind = op.get_bind()
     session = sa.orm.Session(bind=bind)
-    for chat_room in session.query(ChatRoom).all():
-        chat_room.friendly_name = generate_friendly_name()
+    for chat_room in bind.execute("SELECT id FROM chat_rooms").fetchall():
+        op.execute(
+            f"UPDATE chat_rooms SET friendly_name = '{generate_friendly_name()}' WHERE id = '{chat_room.id}'"
+        )
     session.commit()
 
     op.alter_column("chat_rooms", "friendly_name", nullable=False)
