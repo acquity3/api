@@ -97,13 +97,6 @@ class ChatSocketService(socketio.AsyncNamespace):
         )
 
     @handle_acquity_exceptions
-    async def on_req_unarchive_chatroom(self, sid, data):
-        user_id = await self._authenticate(token=data.get("token"))
-        self.chat_room_service.unarchive_room(
-            user_id=user_id, chat_room_id=data.get("chat_room_id")
-        )
-
-    @handle_acquity_exceptions
     async def on_req_disband_chatroom(self, sid, data):
         user_id = await self._authenticate(token=data.get("token"))
         room_id = data.get("chat_room_id")
@@ -118,15 +111,9 @@ class ChatSocketService(socketio.AsyncNamespace):
         user_id = await self._authenticate(token=data.get("token"))
         room_id = data.get("chat_room_id")
 
-        self.chat_room_service.reveal_identity(chat_room_id=room_id, user_id=user_id)
-
-    @handle_acquity_exceptions
-    async def on_req_other_party_details(self, sid, data):
-        user_id = await self._authenticate(token=data.get("token"))
-        room_id = data.get("chat_room_id")
-
-        other_party_details = self.chat_room_service.get_other_party_details(
+        rsp = self.chat_room_service.reveal_identity(
             chat_room_id=room_id, user_id=user_id
         )
 
-        await self.emit("res_other_party_details", other_party_details, room=sid)
+        if rsp is not None:
+            await self.emit("res_reveal_identity", rsp, room=room_id)

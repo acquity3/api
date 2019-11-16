@@ -163,15 +163,6 @@ async def get_previous_round(request, security_id):
     )
 
 
-@blueprint.post("/ban/")
-@auth_required
-@expects_json_object
-async def ban_user(request, user):
-    return json(
-        request.app.banned_pair_service.ban_user(**request.json, my_user_id=user["id"])
-    )
-
-
 @blueprint.get("/auth/linkedin")
 async def linkedin_auth(request):
     return json(request.app.linkedin_login.get_auth_url(**request.args))

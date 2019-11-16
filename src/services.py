@@ -512,7 +512,7 @@ class BannedPairService:
         self.config = config
 
     @validate_input({"my_user_id": UUID_RULE, "other_user_id": UUID_RULE})
-    def ban_user(self, my_user_id, other_user_id):
+    def _ban_user(self, my_user_id, other_user_id):
         # Currently this bans the user two-way: both as buyer and as seller
         with session_scope() as session:
             session.add_all(
@@ -800,25 +800,19 @@ class ChatRoomService:
                 raise InvalidRequestException("Not in chat room")
             chat_room.is_disbanded = True
 
-        BannedPairService(self.config).ban_user(
+        BannedPairService(self.config)._ban_user(
             my_user_id=chat_room.buyer_id, other_user_id=chat_room.seller_id
         )
 
         return {"chat_room_id": chat_room_id}
 
+    @validate_input({"user_id": UUID_RULE, "chat_room_id": UUID_RULE})
     def archive_room(self, user_id, chat_room_id):
         with session_scope() as session:
             archived_chat_room = ArchivedChatRoom(
                 user_id=user_id, chat_room_id=chat_room_id
             )
             session.add(archived_chat_room)
-        return {"chat_room_id": chat_room_id}
-
-    def unarchive_room(self, user_id, chat_room_id):
-        with session_scope() as session:
-            session.query(ArchivedChatRoom).filter_by(
-                user_id=user_id, chat_room_id=chat_room_id
-            ).delete(synchronize_session=False)
         return {"chat_room_id": chat_room_id}
 
     @validate_input({"user_id": UUID_RULE})
@@ -833,26 +827,7 @@ class ChatRoomService:
             )
             return [chat_room.asdict() for chat_room in chat_rooms]
 
-    def get_other_party_details(self, chat_room_id, user_id):
-        with session_scope() as session:
-            chat_room = session.query(ChatRoom).get(chat_room_id).asdict()
-
-        if not (chat_room["is_buyer_revealed"] and chat_room["is_seller_revealed"]):
-            raise ResourceNotOwnedException(
-                "Both parties have not revealed their information."
-            )
-
-        if chat_room["seller_id"] == user_id:
-            other_party_user_id = chat_room["buyer_id"]
-        elif chat_room["buyer_id"] == user_id:
-            other_party_user_id = chat_room["seller_id"]
-        else:
-            raise ResourceNotOwnedException("Wrong user.")
-
-        with session_scope() as session:
-            user = session.query(User).get(other_party_user_id).asdict()
-            return {k: user[k] for k in ["email", "full_name"]}
-
+    @validate_input({"user_id": UUID_RULE, "chat_room_id": UUID_RULE})
     def reveal_identity(self, chat_room_id, user_id):
         with session_scope() as session:
             chat_room = session.query(ChatRoom).get(chat_room_id)
@@ -867,6 +842,14 @@ class ChatRoomService:
                 chat_room.is_seller_revealed = True
             elif chat_room.buyer_id == user_id:
                 chat_room.is_buyer_revealed = True
+
+            if chat_room.is_buyer_revealed and chat_room.is_seller_revealed:
+                buyer = session.query(User).get(chat_room.buyer_id)
+                seller = session.query(User).get(chat_room.buyer_id)
+                return {
+                    "buyer": {"email": buyer.email, "full_name": buyer.full_name},
+                    "seller": {"email": seller.email, "full_name": seller.full_name},
+                }
 
     @staticmethod
     def _filter_chat_rooms_by_archive(user_id, user_type, session, is_archived):

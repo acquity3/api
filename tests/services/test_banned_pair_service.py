@@ -10,7 +10,7 @@ def test_ban_user():
     user_id = create_user("1")["id"]
     user2_id = create_user("2")["id"]
 
-    banned_pair_service.ban_user(my_user_id=user_id, other_user_id=user2_id)
+    banned_pair_service._ban_user(my_user_id=user_id, other_user_id=user2_id)
 
     with session_scope() as session:
         banned_pairs = [bp.asdict() for bp in session.query(BannedPair).all()]
