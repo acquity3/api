@@ -90,7 +90,7 @@ def test_get_chats_by_user_id():
     res = chat_service.get_chats_by_user_id(user_id=me["id"])
 
     assert len(res["archived"]) == 1
-    res_archived_chat_room = res["archived"][0]
+    res_archived_chat_room = res["archived"][archived_chat_room["id"]]
     assert_dict_in(archived_chat_room, res_archived_chat_room)
     res_archived_chat_room_chats = res_archived_chat_room["chats"]
     assert_dict_in(archived_chat_room_offer, res_archived_chat_room_chats[0])
@@ -100,14 +100,14 @@ def test_get_chats_by_user_id():
     assert len(res["unarchived"]) == 2
     unarchived_chat_rooms = res["unarchived"]
 
-    assert_dict_in(chat_room2, unarchived_chat_rooms[0])
-    res_chat_room2_chats = unarchived_chat_rooms[0]["chats"]
-    assert_dict_in(chat_room2_offer, res_chat_room2_chats[0])
-    assert_dict_in(chat_room2_chat1, res_chat_room2_chats[1])
-    assert_dict_in(chat_room2_chat2, res_chat_room2_chats[2])
-
-    assert_dict_in(chat_room1, unarchived_chat_rooms[1])
-    res_chat_room1_chats = unarchived_chat_rooms[1]["chats"]
+    assert_dict_in(chat_room1, unarchived_chat_rooms[chat_room1["id"]])
+    res_chat_room1_chats = unarchived_chat_rooms[chat_room1["id"]]["chats"]
     assert_dict_in(chat_room1_offer, res_chat_room1_chats[0])
     assert_dict_in(chat_room1_chat1, res_chat_room1_chats[1])
     assert_dict_in(chat_room1_chat2, res_chat_room1_chats[2])
+
+    assert_dict_in(chat_room2, unarchived_chat_rooms[chat_room2["id"]])
+    res_chat_room2_chats = unarchived_chat_rooms[chat_room2["id"]]["chats"]
+    assert_dict_in(chat_room2_offer, res_chat_room2_chats[0])
+    assert_dict_in(chat_room2_chat1, res_chat_room2_chats[1])
+    assert_dict_in(chat_room2_chat2, res_chat_room2_chats[2])

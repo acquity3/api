@@ -740,22 +740,15 @@ class ChatService:
                 .all()
             )
 
-        unarchived_res = []
-        archived_res = []
+        unarchived_res = {}
+        archived_res = {}
         for chat_room_id, room in res.items():
             if chat_room_id in archived_room_ids:
-                archived_res.append(room)
+                archived_res[chat_room_id] = room
             else:
-                unarchived_res.append(room)
+                unarchived_res[chat_room_id] = room
 
-        return {
-            "archived": sorted(
-                archived_res, key=lambda x: x["updated_at"], reverse=True
-            ),
-            "unarchived": sorted(
-                unarchived_res, key=lambda x: x["updated_at"], reverse=True
-            ),
-        }
+        return {"archived": archived_res, "unarchived": unarchived_res}
 
     def create_new_message(self, chat_room_id, message, author_id, user_type):
         with session_scope() as session:

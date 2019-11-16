@@ -18,21 +18,18 @@ def expects_json_object(func):
     return decorated_func
 
 
-def handle_acquity_exceptions(emit_message):
-    def decorator(f):
-        async def decorated(self, sid, *args, **kwargs):
-            try:
-                return await f(self, sid, *args, **kwargs)
-            except AcquityException as e:
-                await self.emit(
-                    emit_message,
-                    {"status_code": e.status_code, "message": e.message},
-                    room=sid,
-                )
+def handle_acquity_exceptions(f):
+    async def decorated(self, sid, *args, **kwargs):
+        try:
+            return await f(self, sid, *args, **kwargs)
+        except AcquityException as e:
+            # on_req_* => req_*
+            channel_name = f.__name__[3:]
+            await self.emit(
+                "error", {"name": channel_name, "message": e.message}, room=sid
+            )
 
-        return decorated
-
-    return decorator
+    return decorated
 
 
 # Around 2.5 billion possibilities!
