@@ -36,7 +36,9 @@ class ChatSocketService(socketio.AsyncNamespace):
     @handle_acquity_exceptions
     async def on_req_subscribe(self, sid, data):
         user_id = await self._authenticate(token=data.get("token"))
-        for chat_room in self.chat_room_service.get_chat_rooms_by_user_id(user_id):
+        for chat_room in self.chat_room_service.get_chat_rooms_by_user_id(
+            user_id=user_id
+        ):
             self.enter_room(sid, chat_room["id"])
 
     @handle_acquity_exceptions

@@ -111,11 +111,13 @@ class Security(Base):
 class SellOrder(Base):
     __tablename__ = "sell_orders"
 
-    user_id = Column(UUID, ForeignKey("users.id"), nullable=False)
-    security_id = Column(UUID, ForeignKey("securities.id"), nullable=False)
+    user_id = Column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    security_id = Column(
+        UUID, ForeignKey("securities.id", ondelete="CASCADE"), nullable=False
+    )
     number_of_shares = Column(Float, nullable=False)
     price = Column(Float, nullable=False)
-    round_id = Column(UUID, ForeignKey("rounds.id"))
+    round_id = Column(UUID, ForeignKey("rounds.id", ondelete="CASCADE"))
 
     @property
     def additional_things_to_dict(self):
@@ -130,11 +132,13 @@ class SellOrder(Base):
 class BuyOrder(Base):
     __tablename__ = "buy_orders"
 
-    user_id = Column(UUID, ForeignKey("users.id"), nullable=False)
-    security_id = Column(UUID, ForeignKey("securities.id"), nullable=False)
+    user_id = Column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    security_id = Column(
+        UUID, ForeignKey("securities.id", ondelete="CASCADE"), nullable=False
+    )
     number_of_shares = Column(Float, nullable=False)
     price = Column(Float, nullable=False)
-    round_id = Column(UUID, ForeignKey("rounds.id"))
+    round_id = Column(UUID, ForeignKey("rounds.id", ondelete="CASCADE"))
 
     @property
     def additional_things_to_dict(self):
@@ -149,8 +153,12 @@ class BuyOrder(Base):
 class Match(Base):
     __tablename__ = "matches"
 
-    buy_order_id = Column(UUID, ForeignKey("buy_orders.id"), nullable=False)
-    sell_order_id = Column(UUID, ForeignKey("sell_orders.id"), nullable=False)
+    buy_order_id = Column(
+        UUID, ForeignKey("buy_orders.id", ondelete="CASCADE"), nullable=False
+    )
+    sell_order_id = Column(
+        UUID, ForeignKey("sell_orders.id", ondelete="CASCADE"), nullable=False
+    )
     number_of_shares = Column(Float)
     price = Column(Float)
 
@@ -171,8 +179,8 @@ class Round(Base):
 class BannedPair(Base):
     __tablename__ = "banned_pairs"
 
-    buyer_id = Column(UUID, ForeignKey("users.id"), nullable=False)
-    seller_id = Column(UUID, ForeignKey("users.id"), nullable=False)
+    buyer_id = Column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    seller_id = Column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
     buyer = relationship(
         "User", back_populates="bans_as_buyer", foreign_keys=[buyer_id]
@@ -187,39 +195,47 @@ class BannedPair(Base):
 class ChatRoom(Base):
     __tablename__ = "chat_rooms"
 
-    seller_id = Column(UUID, ForeignKey("users.id"), nullable=False)
-    buyer_id = Column(UUID, ForeignKey("users.id"), nullable=False)
+    seller_id = Column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    buyer_id = Column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     is_deal_closed = Column(Boolean, nullable=False, server_default="f")
     is_disbanded = Column(Boolean, nullable=False, server_default="f")
     is_buyer_revealed = Column(Boolean, nullable=False, server_default="f")
     is_seller_revealed = Column(Boolean, nullable=False, server_default="f")
     friendly_name = Column(String, nullable=False, default=generate_friendly_name)
-    match_id = Column(UUID, ForeignKey("matches.id"), nullable=False)
+    match_id = Column(
+        UUID, ForeignKey("matches.id", ondelete="CASCADE"), nullable=False
+    )
 
     __table_args__ = (UniqueConstraint("seller_id", "buyer_id"),)
 
 
 class ArchivedChatRoom(Base):
     __tablename__ = "archived_chat_rooms"
-    user_id = Column(UUID, ForeignKey("users.id"), nullable=False)
-    chat_room_id = Column(UUID, ForeignKey("chat_rooms.id"), nullable=False)
+    user_id = Column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    chat_room_id = Column(
+        UUID, ForeignKey("chat_rooms.id", ondelete="CASCADE"), nullable=False
+    )
 
 
 class Chat(Base):
     __tablename__ = "chats"
 
-    chat_room_id = Column(UUID, ForeignKey("chat_rooms.id"), nullable=False)
+    chat_room_id = Column(
+        UUID, ForeignKey("chat_rooms.id", ondelete="CASCADE"), nullable=False
+    )
     message = Column(Text, nullable=False)
-    author_id = Column(UUID, ForeignKey("users.id"), nullable=False)
+    author_id = Column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
 
 class Offer(Base):
     __tablename__ = "offers"
 
-    chat_room_id = Column(UUID, ForeignKey("chat_rooms.id"), nullable=False)
+    chat_room_id = Column(
+        UUID, ForeignKey("chat_rooms.id", ondelete="CASCADE"), nullable=False
+    )
     price = Column(Float, nullable=False)
     number_of_shares = Column(Float, nullable=False)
-    author_id = Column(UUID, ForeignKey("users.id"), nullable=False)
+    author_id = Column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     offer_status = Column(
         Enum("ACCEPTED", "REJECTED", "PENDING", name="offer_statuses"),
         nullable=False,
@@ -230,9 +246,9 @@ class Offer(Base):
 class UserRequest(Base):
     __tablename__ = "user_requests"
 
-    user_id = Column(UUID, ForeignKey("users.id"), nullable=False)
+    user_id = Column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     is_buy = Column(Boolean, nullable=False)
-    closed_by_user_id = Column(UUID, ForeignKey("users.id"))
+    closed_by_user_id = Column(UUID, ForeignKey("users.id", ondelete="CASCADE"))
 
 
 engine = create_engine(APP_CONFIG["DATABASE_URL"])

@@ -202,7 +202,7 @@ class SellOrderService:
             if sell_order.user_id != subject_id:
                 raise ResourceNotOwnedException("You need to own this order.")
 
-            session.delete(sell_order)
+            session.query(SellOrder).filter_by(id=id).delete()
         return {}
 
 
@@ -291,7 +291,7 @@ class BuyOrderService:
             if buy_order.user_id != subject_id:
                 raise ResourceNotOwnedException("You need to own this order.")
 
-            session.delete(buy_order)
+            session.query(BuyOrder).filter_by(id=id).delete()
         return {}
 
 
@@ -644,7 +644,7 @@ class OfferService:
         return {
             "chat_room_id": chat_room_id,
             "updated_at": datetime.timestamp(offer.get("created_at")) * 1000,
-            "new_chat": {"type": "offer", **offer.asdict()},
+            "new_chat": {"type": "offer", **offer},
             "is_deal_closed": is_deal_closed,
         }
 
@@ -765,7 +765,7 @@ class ChatService:
         return {
             "chat_room_id": chat_room_id,
             "updated_at": datetime.timestamp(message.get("created_at")) * 1000,
-            "new_chat": {"type": "chat", **message.asdict()},
+            "new_chat": {"type": "chat", **message},
         }
 
     @staticmethod
