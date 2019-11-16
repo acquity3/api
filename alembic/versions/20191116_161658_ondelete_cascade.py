@@ -58,7 +58,13 @@ def upgrade():
         None, "buy_orders", "users", ["user_id"], ["id"], ondelete="CASCADE"
     )
     op.drop_constraint("chat_rooms_buyer_id_fkey", "chat_rooms", type_="foreignkey")
-    op.drop_constraint("chat_room_match_id-match_id", "chat_rooms", type_="foreignkey")
+    try:
+        op.drop_constraint(
+            "chat_room_match_id-match_id", "chat_rooms", type_="foreignkey"
+        )
+    except:
+        op.drop_constraint("chat_room_match_id_fkey", "chat_rooms", type_="foreignkey")
+
     op.drop_constraint("chat_rooms_seller_id_fkey", "chat_rooms", type_="foreignkey")
     op.create_foreign_key(
         None, "chat_rooms", "users", ["seller_id"], ["id"], ondelete="CASCADE"

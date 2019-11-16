@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import requests
 from sqlalchemy import and_
@@ -376,8 +376,35 @@ class RoundService:
             for buy_order in session.query(BuyOrder).filter_by(round_id=None):
                 buy_order.round_id = str(new_round.id)
 
-            emails = [user.email for user in session.query(User).all()]
-            self.email_service.send_email(emails, template="round_opened")
+            singapore_timezone = timezone(timedelta(hours=8))
+
+            seller_emails = [
+                user.email
+                for user in session.query(User).filter_by(can_sell=True).all()
+            ]
+            self.email_service.send_email(
+                seller_emails,
+                template="round_opened_seller",
+                start_date=datetime.now(singapore_timezone).strftime(
+                    "%A, %B %d %Y, %I:%M %p %Z"
+                ),
+                end_date=new_round.end_time.astimezone(tz=singapore_timezone).strftime(
+                    "%A, %B %d %Y, %I:%M %p %Z"
+                ),
+            )
+            buyer_emails = [
+                user.email for user in session.query(User).filter_by(can_buy=True).all()
+            ]
+            self.email_service.send_email(
+                buyer_emails,
+                template="round_opened_buyer",
+                start_date=datetime.now(singapore_timezone).strftime(
+                    "%A, %B %d %Y, %I:%M %p %Z"
+                ),
+                end_date=new_round.end_time.astimezone(tz=singapore_timezone).strftime(
+                    "%A, %B %d %Y, %I:%M %p %Z"
+                ),
+            )
 
         if scheduler is not None:
             scheduler.add_job(

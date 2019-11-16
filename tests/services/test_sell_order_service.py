@@ -116,7 +116,7 @@ def test_create_order__pending():
 
 
 def test_create_order__add_new_round():
-    user = create_user()
+    user = create_user(can_buy=True)
     security_id = create_security()["id"]
 
     user_id = user["id"]
@@ -150,7 +150,10 @@ def test_create_order__add_new_round():
             **sell_order_params, scheduler=SchedulerMock()
         )["id"]
 
-        email_mock.assert_any_call([user["email"]], template="round_opened")
+        template_calls = [a[1].get("template") for a in email_mock.call_args_list]
+        assert "round_opened_buyer" in template_calls
+        assert "round_opened_seller" in template_calls
+
         email_mock.assert_any_call(emails=[user["email"]], template="create_sell_order")
 
     scheduler_args = scheduler_mock.call_args
