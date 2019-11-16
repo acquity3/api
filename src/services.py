@@ -620,18 +620,6 @@ class OfferService:
                 user_id=user_id,
             )
 
-    def get_chat_offers(self, user_id, user_type, chat_room_id):
-        with session_scope() as session:
-            results = session.query(Offer).filter_by(chat_room_id=chat_room_id).all()
-            data = []
-            for result in results:
-                data.append(
-                    OfferService._serialize_offer(
-                        offer=result.asdict(), user_type=user_type, user_id=user_id
-                    )
-                )
-            return data
-
     @staticmethod
     def _check_deal_status(session, chat_room_id, user_id, user_type):
         chat_room = session.query(ChatRoom).get(chat_room_id)
@@ -652,28 +640,11 @@ class OfferService:
             raise InvalidRequestException("There are still pending offers")
 
     @staticmethod
-    def _serialize_offer(offer, user_type, user_id):
-        other_user_type = "buyer" if user_type == "seller" else "seller"
-        return {
-            "id": offer.get("id"),
-            "price": offer.get("price"),
-            "number_of_shares": offer.get("number_of_shares"),
-            "offer_status": offer.get("offer_status"),
-            "created_at": datetime.timestamp(offer.get("created_at")) * 1000,
-            "user_type": user_type
-            if offer.get("author_id") == user_id
-            else other_user_type,
-            "type": "offer",
-        }
-
-    @staticmethod
     def _serialize_chat_offer(chat_room_id, offer, is_deal_closed, user_type, user_id):
         return {
             "chat_room_id": chat_room_id,
             "updated_at": datetime.timestamp(offer.get("created_at")) * 1000,
-            "new_chat": OfferService._serialize_offer(
-                offer=offer, user_type=user_type, user_id=user_id
-            ),
+            "new_chat": {"type": "offer", **offer.asdict()},
             "is_deal_closed": is_deal_closed,
         }
 
@@ -790,26 +761,11 @@ class ChatService:
             )
 
     @staticmethod
-    def _serialize_message(message, user_type, user_id):
-        other_user_type = "buyer" if user_type == "seller" else "seller"
-        return {
-            "id": message.get("id"),
-            "message": message.get("message"),
-            "created_at": datetime.timestamp(message.get("created_at")) * 1000,
-            "user_type": user_type
-            if message.get("author_id") == user_id
-            else other_user_type,
-            "type": "message",
-        }
-
-    @staticmethod
     def _serialize_chat_message(chat_room_id, message, user_type, user_id):
         return {
             "chat_room_id": chat_room_id,
             "updated_at": datetime.timestamp(message.get("created_at")) * 1000,
-            "new_chat": ChatService._serialize_message(
-                message=message, user_type=user_type, user_id=user_id
-            ),
+            "new_chat": {"type": "chat", **message.asdict()},
         }
 
     @staticmethod
