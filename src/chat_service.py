@@ -104,6 +104,16 @@ class ChatSocketService(socketio.AsyncNamespace):
         )
 
     @handle_acquity_exceptions
+    async def on_req_disband_chatroom(self, sid, data):
+        user_id = await self._authenticate(token=data.get("token"))
+        room_id = data.get("chat_room_id")
+
+        rsp = self.chat_room_service.disband_chatroom(
+            user_id=user_id, chat_room_id=room_id
+        )
+        await self.emit("res_disband_chatroom", rsp, room=room_id)
+
+    @handle_acquity_exceptions
     async def on_req_reveal_identity(self, sid, data):
         user_id = await self._authenticate(token=data.get("token"))
         room_id = data.get("chat_room_id")

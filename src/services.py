@@ -538,6 +538,9 @@ class OfferService:
                 user_type=user_type,
             )
             chat_room = session.query(ChatRoom).get(chat_room_id)
+            if chat_room.is_disbanded:
+                raise ResourceNotFoundException("Chat room is disbanded")
+
             offer = Offer(
                 chat_room_id=str(chat_room_id),
                 price=price,
@@ -632,13 +635,21 @@ class OfferService:
     @staticmethod
     def _check_deal_status(session, chat_room_id, user_id, user_type):
         chat_room = session.query(ChatRoom).get(chat_room_id)
+
+        OfferService._verify_user(
+            chat_room=chat_room, user_id=user_id, user_type=user_type
+        )
+
         if chat_room is None:
             raise ResourceNotFoundException("Chat room not found")
         if chat_room.is_deal_closed:
             raise InvalidRequestException("Deal is closed")
-        OfferService._verify_user(
-            chat_room=chat_room, user_id=user_id, user_type=user_type
+
+        offers = session.query(Offer).filter_by(
+            chat_room_id=chat_room.id, offer_status="PENDING"
         )
+        if offers.count > 0:
+            raise InvalidRequestException("There are still pending offers")
 
     @staticmethod
     def _serialize_offer(offer, user_type, user_id):
@@ -758,6 +769,9 @@ class ChatService:
             ChatService._verify_user(
                 chat_room=chat_room, user_id=author_id, user_type=user_type
             )
+            if chat_room.is_disbanded:
+                raise ResourceNotFoundException("Chat room is disbanded")
+
             message = Chat(
                 chat_room_id=str(chat_room_id),
                 message=message,
@@ -821,6 +835,20 @@ class ChatService:
 class ChatRoomService:
     def __init__(self, config):
         self.config = config
+
+    @validate_input({"user_id": UUID_RULE, "chat_room_id": UUID_RULE})
+    def disband_chatroom(self, user_id, chat_room_id):
+        with session_scope() as session:
+            chat_room = session.query(ChatRoom).get(chat_room_id)
+            if user_id not in [chat_room.buyer_id, chat_room.seller_id]:
+                raise InvalidRequestException("Not in chat room")
+            chat_room.is_disbanded = True
+
+        BannedPairService(self.config).ban_user(
+            my_user_id=chat_room.buyer_id, other_user_id=chat_room.seller_id
+        )
+
+        return {"chat_room_id": chat_room_id}
 
     def archive_room(self, user_id, chat_room_id):
         with session_scope() as session:
