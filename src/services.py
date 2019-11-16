@@ -661,9 +661,9 @@ class OfferService:
             raise InvalidRequestException("Deal is closed")
 
         offers = session.query(Offer).filter_by(
-            chat_room_id=chat_room.id, offer_status="PENDING"
+            chat_room_id=str(chat_room.id), offer_status="PENDING"
         )
-        if offers.count > 0:
+        if offers.count() > 0:
             raise InvalidRequestException("There are still pending offers")
 
     @staticmethod

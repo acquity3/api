@@ -1,3 +1,4 @@
+import json
 import random
 from collections.abc import Mapping
 from functools import wraps
@@ -39,3 +40,13 @@ def generate_friendly_name():
         + " "
         + str(random.randint(1000, 9999))
     )
+
+
+class JsonStrDefault:
+    @staticmethod
+    def dumps(*args, **kwargs):
+        return json.dumps(*args, **{**kwargs, "default": str})
+
+    @staticmethod
+    def loads(*args, **kwargs):
+        return json.loads(*args, **kwargs)

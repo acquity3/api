@@ -27,6 +27,7 @@ from src.services import (
     UserRequestService,
     UserService,
 )
+from src.utils import JsonStrDefault
 
 if APP_CONFIG["SENTRY_ENABLE"]:
 
@@ -46,9 +47,11 @@ if APP_CONFIG["SENTRY_ENABLE"]:
 app = Sanic(load_env=False)
 app.config.update(APP_CONFIG)
 
-sio = socketio.AsyncServer(async_mode="sanic", cors_allowed_origins=[])
+sio = socketio.AsyncServer(
+    async_mode="sanic", cors_allowed_origins=[], json=JsonStrDefault
+)
 sio.attach(app)
-sio.register_namespace(ChatSocketService("/v1/chat", app.config, sio))
+sio.register_namespace(ChatSocketService("/v1/chat", app.config))
 
 app.user_service = UserService(app.config)
 app.sell_order_service = SellOrderService(app.config)

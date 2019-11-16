@@ -11,7 +11,7 @@ from src.utils import handle_acquity_exceptions
 
 
 class ChatSocketService(socketio.AsyncNamespace):
-    def __init__(self, namespace, config, sio):
+    def __init__(self, namespace, config):
         super().__init__(namespace)
         self.chat_service = ChatService(config)
         self.chat_room_service = ChatRoomService(config)
