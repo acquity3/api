@@ -65,3 +65,8 @@ AUTHENTICATE_SCHEMA = {
     "redirect_uri": {"type": "string"},
     "user_type": {"type": "string", "allowed": ["buyer", "seller"]},
 }
+GET_CHATS_BY_USER_ID_SCHEMA = {
+    "user_id": UUID_RULE,
+    "as_buyer": {"type": "boolean"},
+    "as_seller": {"type": "boolean"},
+}

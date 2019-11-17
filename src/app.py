@@ -27,7 +27,7 @@ from src.services import (
     UserRequestService,
     UserService,
 )
-from src.utils import JsonStrDefault
+from src.utils import AcquityJson
 
 if APP_CONFIG["SENTRY_ENABLE"]:
 
@@ -48,7 +48,7 @@ app = Sanic(load_env=False)
 app.config.update(APP_CONFIG)
 
 sio = socketio.AsyncServer(
-    async_mode="sanic", cors_allowed_origins=[], json=JsonStrDefault
+    async_mode="sanic", cors_allowed_origins=[], json=AcquityJson
 )
 sio.attach(app)
 sio.register_namespace(ChatSocketService("/v1/chat", app.config))

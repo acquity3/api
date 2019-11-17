@@ -203,4 +203,9 @@ async def reject_request(request, user, id):
 @blueprint.get("/chats/")
 @auth_required
 async def get_chats(request, user):
-    return json(request.app.chat_service.get_chats_by_user_id(user_id=user["id"]))
+    types = request.args.get("type") or []
+    return json(
+        request.app.chat_service.get_chats_by_user_id(
+            user_id=user["id"], as_buyer="buyer" in types, as_seller="seller" in types
+        )
+    )

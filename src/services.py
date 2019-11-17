@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 import requests
 from sqlalchemy import and_
 from sqlalchemy.sql import func
+from sqlalchemy.sql.expression import false
 
 from src.database import (
     ArchivedChatRoom,
@@ -38,6 +39,7 @@ from src.schemata import (
     EDIT_MARKET_PRICE_SCHEMA,
     EDIT_ORDER_SCHEMA,
     GET_AUTH_URL_SHCMEA,
+    GET_CHATS_BY_USER_ID_SCHEMA,
     UUID_RULE,
     validate_input,
 )
@@ -743,17 +745,18 @@ class ChatService:
         self.config = config
         self.email_service = EmailService(config=config)
 
-    @validate_input({"user_id": UUID_RULE})
-    def get_chats_by_user_id(self, user_id):
+    @validate_input(GET_CHATS_BY_USER_ID_SCHEMA)
+    def get_chats_by_user_id(self, user_id, as_buyer, as_seller):
+        buyer_filter = (ChatRoom.buyer_id == user_id) if as_buyer else false()
+        seller_filter = (ChatRoom.seller_id == user_id) if as_seller else false()
+
         with session_scope() as session:
             chat_room_queries = (
                 session.query(ChatRoom, Match, BuyOrder, SellOrder)
                 .filter(ChatRoom.match_id == Match.id)
                 .filter(Match.buy_order_id == BuyOrder.id)
                 .filter(Match.sell_order_id == SellOrder.id)
-                .filter(
-                    (ChatRoom.buyer_id == user_id) | (ChatRoom.seller_id == user_id)
-                )
+                .filter(buyer_filter | seller_filter)
                 .all()
             )
             chats = session.query(Chat).all()
@@ -770,6 +773,7 @@ class ChatService:
                 res[str(chat_room.id)]["sell_order"] = sell_order.asdict()
 
                 res[str(chat_room.id)]["chats"] = []
+                res[str(chat_room.id)]["pending_offer"] = None
 
             for chat in chats:
                 if chat.chat_room_id in res:
@@ -781,6 +785,9 @@ class ChatService:
                     res[offer.chat_room_id]["chats"].append(
                         {"type": "offer", **offer.asdict()}
                     )
+
+                    if offer.offer_status == "PENDING":
+                        res[offer.chat_room_id]["pending_offer"] = offer.asdict()
 
             for v in res.values():
                 v["chats"].sort(key=lambda x: x["created_at"])

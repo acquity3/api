@@ -1,6 +1,7 @@
 import json
 import random
 from collections.abc import Mapping
+from datetime import datetime
 from functools import wraps
 
 import coolname
@@ -42,10 +43,17 @@ def generate_friendly_name():
     )
 
 
-class JsonStrDefault:
+class AcquityEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return int(obj.timestamp())
+        return json.JSONEncoder.default(self, obj)
+
+
+class AcquityJson:
     @staticmethod
     def dumps(*args, **kwargs):
-        return json.dumps(*args, **{**kwargs, "default": str})
+        return json.dumps(*args, **{**kwargs, "cls": AcquityEncoder})
 
     @staticmethod
     def loads(*args, **kwargs):
