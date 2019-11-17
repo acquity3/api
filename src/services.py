@@ -766,7 +766,7 @@ class ChatService:
             offer_d = {}
             for offer in offers:
                 if offer.chat_room_id in res:
-                    offer_d[str(offer.id)] = offer
+                    offer_d[str(offer.id)] = offer.asdict()
 
                     res[offer.chat_room_id]["chats"].append(
                         {"type": "offer", **offer.asdict()}
