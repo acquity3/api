@@ -617,11 +617,7 @@ class OfferService:
                 session=session, chat_room=chat_room, offer=offer
             )
             return OfferService._serialize_chat_offer(
-                chat_room_id=chat_room_id,
-                offer=offer,
-                is_deal_closed=chat_room.is_deal_closed,
-                user_type=user_type,
-                user_id=author_id,
+                offer=offer, is_deal_closed=chat_room.is_deal_closed
             )
 
     def accept_offer(self, chat_room_id, offer_id, user_id, user_type):
@@ -633,7 +629,7 @@ class OfferService:
                 user_type=user_type,
             )
             chat_room = session.query(ChatRoom).get(chat_room_id)
-            offer = session.query(Offer).filter_by(id=offer_id).one()
+            offer = session.query(Offer).get(offer_id)
 
             if offer.offer_status != "PENDING":
                 raise InvalidRequestException("Offer is closed")
@@ -647,11 +643,7 @@ class OfferService:
                 )
             offer = OfferService._get_current_offer(session=session, offer=offer)
             return OfferService._serialize_chat_offer(
-                chat_room_id=chat_room_id,
-                offer=offer,
-                is_deal_closed=chat_room.is_deal_closed,
-                user_type=user_type,
-                user_id=user_id,
+                offer=offer, is_deal_closed=chat_room.is_deal_closed
             )
 
     def reject_offer(self, chat_room_id, offer_id, user_id, user_type):
@@ -663,7 +655,7 @@ class OfferService:
                 user_type=user_type,
             )
             chat_room = session.query(ChatRoom).get(chat_room_id)
-            offer = session.query(Offer).filter_by(id=offer_id).one()
+            offer = session.query(Offer).get(offer_id)
             if offer.offer_status != "PENDING":
                 raise InvalidRequestException("Offer is closed")
             OfferService._update_offer_status(
@@ -678,11 +670,7 @@ class OfferService:
                 session=session, chat_room=chat_room, offer=offer
             )
             return OfferService._serialize_chat_offer(
-                chat_room_id=chat_room_id,
-                offer=offer,
-                is_deal_closed=chat_room.is_deal_closed,
-                user_type=user_type,
-                user_id=user_id,
+                offer=offer, is_deal_closed=chat_room.is_deal_closed
             )
 
     @staticmethod
@@ -705,13 +693,8 @@ class OfferService:
             raise InvalidRequestException("There are still pending offers")
 
     @staticmethod
-    def _serialize_chat_offer(chat_room_id, offer, is_deal_closed, user_type, user_id):
-        return {
-            "chat_room_id": chat_room_id,
-            "updated_at": datetime.timestamp(offer.get("created_at")) * 1000,
-            "new_chat": {"type": "offer", **offer},
-            "is_deal_closed": is_deal_closed,
-        }
+    def _serialize_chat_offer(offer, is_deal_closed):
+        return {"type": "offer", "is_deal_closed": is_deal_closed, **offer}
 
     @staticmethod
     def _get_current_offer(session, offer):
@@ -773,7 +756,7 @@ class ChatService:
                 res[str(chat_room.id)]["sell_order"] = sell_order.asdict()
 
                 res[str(chat_room.id)]["chats"] = []
-                res[str(chat_room.id)]["pending_offer"] = None
+                res[str(chat_room.id)]["latest_offer"] = None
 
             for chat in chats:
                 if chat.chat_room_id in res:
@@ -786,8 +769,8 @@ class ChatService:
                         {"type": "offer", **offer.asdict()}
                     )
 
-                    if offer.offer_status == "PENDING":
-                        res[offer.chat_room_id]["pending_offer"] = offer.asdict()
+                    if offer.offer_status != "REJECTED":
+                        res[offer.chat_room_id]["latest_offer"] = offer.asdict()
 
             for v in res.values():
                 v["chats"].sort(key=lambda x: x["created_at"])
@@ -848,17 +831,7 @@ class ChatService:
                     emails=[other_party_email], template="new_chat_message"
                 )
 
-            return self._serialize_chat_message(
-                chat_room_id=chat_room_id, message=message, user_type=user_type
-            )
-
-    @staticmethod
-    def _serialize_chat_message(chat_room_id, message, user_type):
-        return {
-            "chat_room_id": chat_room_id,
-            "updated_at": datetime.timestamp(message.get("created_at")) * 1000,
-            "new_chat": {"type": "chat", **message},
-        }
+            return {"type": "chat", **message}
 
     @staticmethod
     def _get_current_message(session, message):
