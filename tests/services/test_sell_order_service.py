@@ -92,27 +92,17 @@ def test_create_order__pending():
     security_id = create_security()["id"]
     create_user_request(user_id=user_id, is_buy=False)
 
-    sell_order_params = {
-        "user_id": user_id,
-        "number_of_shares": 20,
-        "price": 30,
-        "security_id": security_id,
-    }
-
-    with patch("src.services.RoundService.get_active", return_value=None), patch(
-        "src.services.RoundService.should_round_start", return_value=False
-    ), patch("src.services.EmailService.send_email") as email_mock:
-        sell_order_id = sell_order_service.create_order(
-            **sell_order_params, scheduler=None
-        )["id"]
-        email_mock.assert_called_with(
-            emails=[user["email"]], template="create_sell_order"
+    with pytest.raises(UnauthorizedException), patch(
+        "src.services.EmailService.send_email"
+    ) as email_mock:
+        sell_order_service.create_order(
+            user_id=user_id,
+            number_of_shares=20,
+            price=30,
+            security_id=security_id,
+            scheduler=None,
         )
-
-    with session_scope() as session:
-        sell_order = session.query(SellOrder).get(sell_order_id).asdict()
-
-    assert_dict_in({**sell_order_params, "round_id": None}, sell_order)
+        email_mock.assert_not_called()
 
 
 def test_create_order__add_new_round():

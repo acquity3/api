@@ -139,7 +139,7 @@ class SellOrderService:
             user = session.query(User).get(user_id)
             if user is None:
                 raise ResourceNotFoundException()
-            if user.asdict()["can_sell"] == "NO":
+            if not user.can_sell:
                 raise UnauthorizedException("User cannot place sell orders.")
 
             sell_order_count = (
