@@ -50,3 +50,6 @@ class JsonStrDefault:
     @staticmethod
     def loads(*args, **kwargs):
         return json.loads(*args, **kwargs)
+
+
+EMAIL_STRFTIME_FORMAT = "%A, %B %d %Y, %I:%M %p %Z"

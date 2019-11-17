@@ -8,11 +8,11 @@ from src.exceptions import InvalidRequestException
 Validator.types_mapping["scheduler"] = TypeDefinition("scheduler", (BaseScheduler,), ())
 
 
-def validate_input(schema):
+def validate_input(schema, **validator_kwargs):
     def decorator(func):
         @wraps(func)
         def decorated_func(*args, **kwargs):
-            validator = Validator(schema, require_all=True)
+            validator = Validator(schema, require_all=True, **validator_kwargs)
             res = validator.validate(kwargs)
             if not res:
                 raise InvalidRequestException(validator.errors)

@@ -41,6 +41,7 @@ from src.schemata import (
     UUID_RULE,
     validate_input,
 )
+from src.utils import EMAIL_STRFTIME_FORMAT
 
 
 class UserService:
@@ -107,6 +108,24 @@ class UserService:
                 raise ResourceNotFoundException()
             user_dict = user.asdict()
         return user_dict
+
+    def send_email_to_approved_users(self, template, to_buyers, to_sellers, **kwargs):
+        with session_scope() as session:
+            if to_sellers:
+                seller_emails = [
+                    user.email
+                    for user in session.query(User).filter_by(can_sell=True).all()
+                ]
+                self.email_service.send_email(
+                    seller_emails, template=template, **kwargs
+                )
+
+            if to_buyers:
+                buyer_emails = [
+                    user.email
+                    for user in session.query(User).filter_by(can_buy=True).all()
+                ]
+                self.email_service.send_email(buyer_emails, template=template, **kwargs)
 
 
 class SellOrderService:
@@ -377,32 +396,27 @@ class RoundService:
                 buy_order.round_id = str(new_round.id)
 
             singapore_timezone = timezone(timedelta(hours=8))
-
-            seller_emails = [
-                user.email
-                for user in session.query(User).filter_by(can_sell=True).all()
-            ]
-            self.email_service.send_email(
-                seller_emails,
+            user_service = UserService(self.config)
+            user_service.send_email_to_approved_users(
                 template="round_opened_seller",
+                to_buyers=False,
+                to_sellers=True,
                 start_date=datetime.now(singapore_timezone).strftime(
-                    "%A, %B %d %Y, %I:%M %p %Z"
+                    EMAIL_STRFTIME_FORMAT
                 ),
                 end_date=new_round.end_time.astimezone(tz=singapore_timezone).strftime(
-                    "%A, %B %d %Y, %I:%M %p %Z"
+                    EMAIL_STRFTIME_FORMAT
                 ),
             )
-            buyer_emails = [
-                user.email for user in session.query(User).filter_by(can_buy=True).all()
-            ]
-            self.email_service.send_email(
-                buyer_emails,
+            user_service.send_email_to_approved_users(
                 template="round_opened_buyer",
+                to_buyers=True,
+                to_sellers=False,
                 start_date=datetime.now(singapore_timezone).strftime(
-                    "%A, %B %d %Y, %I:%M %p %Z"
+                    EMAIL_STRFTIME_FORMAT
                 ),
                 end_date=new_round.end_time.astimezone(tz=singapore_timezone).strftime(
-                    "%A, %B %d %Y, %I:%M %p %Z"
+                    EMAIL_STRFTIME_FORMAT
                 ),
             )
 
@@ -410,6 +424,28 @@ class RoundService:
             scheduler.add_job(
                 MatchService(self.config).run_matches, "date", run_date=end_time
             )
+
+    def send_round_closing_soon_emails(self):
+        singapore_timezone = timezone(timedelta(hours=8))
+        round_end_time = (
+            self.get_active()["end_time"]
+            .astimezone(tz=singapore_timezone)
+            .strftime(EMAIL_STRFTIME_FORMAT)
+        )
+
+        user_service = UserService(self.config)
+        user_service.send_email_to_approved_users(
+            template="round_closing_soon_buyer",
+            to_buyers=True,
+            to_sellers=False,
+            end_date=round_end_time,
+        )
+        user_service.send_email_to_approved_users(
+            template="round_closing_soon_seller",
+            to_buyers=False,
+            to_sellers=True,
+            end_date=round_end_time,
+        )
 
     @validate_input({"security_id": UUID_RULE})
     def get_previous_round_statistics(self, security_id):
@@ -705,6 +741,7 @@ class OfferService:
 class ChatService:
     def __init__(self, config):
         self.config = config
+        self.email_service = EmailService(config=config)
 
     @validate_input({"user_id": UUID_RULE})
     def get_chats_by_user_id(self, user_id):
@@ -776,6 +813,10 @@ class ChatService:
             if chat_room.is_disbanded:
                 raise ResourceNotFoundException("Chat room is disbanded")
 
+            first_chat = (
+                session.query(Chat).filter_by(chat_room_id=chat_room_id).count() == 0
+            )
+
             message = Chat(
                 chat_room_id=str(chat_room_id),
                 message=message,
@@ -785,6 +826,20 @@ class ChatService:
             ChatService._update_chatroom_datetime(
                 session=session, chat_room=chat_room, message=message
             )
+
+            if first_chat:
+                other_party_email = (
+                    session.query(User)
+                    .get(
+                        chat_room.buyer_id
+                        if user_type == "seller"
+                        else chat_room.seller_id
+                    )
+                    .email
+                )
+                self.email_service.send_email(
+                    emails=[other_party_email], template="new_chat_message"
+                )
 
             return self._serialize_chat_message(
                 chat_room_id=chat_room_id, message=message, user_type=user_type

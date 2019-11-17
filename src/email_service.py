@@ -5,65 +5,79 @@ import requests
 EMAIL_TEMPLATE = {
     "register_buyer": {
         "subject": "Welcome to Acquity!",
-        "text": "Welcome to Acquity! Please wait while our committee approves your request to be a buyer.",
+        "html": "emails/register/buyer.html",
     },
     "register_seller": {
         "subject": "Welcome to Acquity!",
-        "text": "Welcome to Acquity! Please wait while our committee approves your request to be a seller.",
+        "html": "emails/register/seller.html",
     },
     "approved_buyer": {
         "subject": "Your account has been approved",
-        "text": "Congratulations, your account has been approved by the committee! You can now put bid requests.",
+        "html": "emails/approved/buyer.html",
     },
     "approved_seller": {
         "subject": "Your account has been approved",
-        "text": "Congratulations, your account has been approved by the committee! You can now put ask requests.",
+        "html": "emails/approved/seller.html",
     },
     "rejected_buyer": {
-        "subject": "Sorry, your account has been rejected",
-        "text": "Sorry, your account is not approved by the committee. Please contact the committee if you wish to dispute this.",
+        "subject": "Sorry, your account was not approved",
+        "html": "emails/rejected/buyer.html",
     },
     "rejected_seller": {
-        "subject": "Sorry, your account has been rejected",
-        "text": "Sorry, your account is not approved by the committee. Please contact the committee if you wish to dispute this.",
+        "subject": "Sorry, your account was not approved",
+        "html": "emails/rejected/seller.html",
     },
     "round_opened_buyer": {
-        "subject": "Round has opened",
-        "html": "emails/round_opened_buyer.html",
+        "subject": "Round Has Opened!",
+        "html": "emails/round_opened/buyer.html",
         "templates": {"[START DATE]": "start_date", "[END DATE]": "end_date"},
     },
     "round_opened_seller": {
-        "subject": "Round has opened",
-        "html": "emails/round_opened_seller.html",
+        "subject": "Round Has Opened!",
+        "html": "emails/round_opened/seller.html",
         "templates": {"[START DATE]": "start_date", "[END DATE]": "end_date"},
+    },
+    "round_closing_soon_buyer": {
+        "subject": "Round will be closing in 2 days!",
+        "html": "emails/round_closing/buyer.html",
+        "templates": {"[END DATE]": "end_date"},
+    },
+    "round_closing_soon_seller": {
+        "subject": "Round will be closing in 2 days!",
+        "html": "emails/round_closing/seller.html",
+        "templates": {"[END DATE]": "end_date"},
     },
     "create_buy_order": {
         "subject": "Your bid has been created",
-        "text": "Your bid has been created! Please wait until the round ends.",
+        "html": "emails/create_order/buyer.html",
     },
     "create_sell_order": {
         "subject": "Your ask has been created",
-        "text": "Your ask has been created! Please wait until the round ends.",
+        "html": "emails/create_order/seller.html",
     },
     "edit_buy_order": {
         "subject": "Your bid has been edited",
-        "text": "Your bid has been edited! Please wait until the round ends.",
+        "html": "emails/edit_order/buyer.html",
     },
     "edit_sell_order": {
         "subject": "Your ask has been edited",
-        "text": "Your ask has been edited! Please wait until the round ends.",
+        "html": "emails/edit_order/seller.html",
     },
     "match_done_has_match": {
         "subject": "You got a match!",
-        "text": "Open Acquity to check your matches.",
+        "html": "emails/match.html",
     },
     "match_done_no_match": {
-        "subject": "No match!",
-        "text": "Your price might be too high/low! Try again.",
+        "subject": "We could not find you a match",
+        "html": "emails/no_match.html",
+    },
+    "new_chat_message": {
+        "subject": "You've got a new message on Acquity",
+        "html": "emails/chat_message.html",
     },
     "new_user_review": {
-        "subject": "A new user has registered",
-        "text": "A new user has registered. Please approve/reject him/her.",
+        "subject": "A new user has registered!",
+        "html": "emails/admin_new_user.html",
     },
 }
 
