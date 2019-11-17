@@ -603,6 +603,13 @@ class OfferService:
                 user_id=author_id,
                 user_type=user_type,
             )
+
+            offers = session.query(Offer).filter_by(
+                chat_room_id=chat_room_id, offer_status="PENDING"
+            )
+            if offers.count() > 0:
+                raise InvalidRequestException("There are still pending offers")
+
             chat_room = session.query(ChatRoom).get(chat_room_id)
             if chat_room.is_disbanded:
                 raise ResourceNotFoundException("Chat room is disbanded")
@@ -671,12 +678,6 @@ class OfferService:
             raise ResourceNotFoundException("Chat room not found")
         if chat_room.is_deal_closed:
             raise InvalidRequestException("Deal is closed")
-
-        offers = session.query(Offer).filter_by(
-            chat_room_id=str(chat_room.id), offer_status="PENDING"
-        )
-        if offers.count() > 0:
-            raise InvalidRequestException("There are still pending offers")
 
     @staticmethod
     def _serialize_chat_offer(
