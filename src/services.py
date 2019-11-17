@@ -657,7 +657,7 @@ class OfferService:
 
             other_party_id = (
                 chat_room.seller_id
-                if chat_room.buyer_id == user_id
+                if chat_room.buyer_id == offer["author_id"]
                 else chat_room.buyer_id
             )
             return OfferService._serialize_chat_offer(
