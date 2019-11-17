@@ -23,6 +23,7 @@ chat_service = ChatService(config=APP_CONFIG)
 # - test the as_buyer, as_seller params
 # - test is_revealed behavior
 # - test latest_offer
+# - test offer_response
 def test_get_chats_by_user_id():
     me = create_user()
 

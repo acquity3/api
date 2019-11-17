@@ -52,7 +52,7 @@ class ChatSocketService(socketio.AsyncNamespace):
             user_type=data.get("user_type"),
         )
 
-        await self.emit("res_new_message", chat, room=room_id)
+        await self.emit("res_new_event", chat, room=room_id)
 
     @handle_acquity_exceptions
     async def on_req_new_offer(self, sid, data):
@@ -65,31 +65,33 @@ class ChatSocketService(socketio.AsyncNamespace):
             number_of_shares=data.get("number_of_shares"),
             user_type=data.get("user_type"),
         )
-        await self.emit("res_new_offer", offer, room=room_id)
+        await self.emit("res_new_event", offer, room=room_id)
 
     @handle_acquity_exceptions
     async def on_req_accept_offer(self, sid, data):
         user_id = await self._authenticate(token=data.get("token"))
         room_id = data.get("chat_room_id")
-        offer = self.offer_service.accept_offer(
+        offer = self.offer_service.update_offer(
             chat_room_id=room_id,
             offer_id=data.get("offer_id"),
             user_id=user_id,
             user_type=data.get("user_type"),
+            is_accept=True,
         )
-        await self.emit("res_accept_offer", offer, room=room_id)
+        await self.emit("res_new_event", offer, room=room_id)
 
     @handle_acquity_exceptions
     async def on_req_decline_offer(self, sid, data):
         user_id = await self._authenticate(token=data.get("token"))
         room_id = data.get("chat_room_id")
-        offer = self.offer_service.reject_offer(
+        offer = self.offer_service.update_offer(
             chat_room_id=room_id,
             offer_id=data.get("offer_id"),
             user_id=user_id,
             user_type=data.get("user_type"),
+            is_accept=False,
         )
-        await self.emit("res_decline_offer", offer, room=room_id)
+        await self.emit("res_new_event", offer, room=room_id)
 
     @handle_acquity_exceptions
     async def on_req_archive_chatroom(self, sid, data):

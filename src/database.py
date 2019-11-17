@@ -243,6 +243,13 @@ class Offer(Base):
     )
 
 
+class OfferResponse(Base):
+    __tablename__ = "offer_responses"
+
+    offer_id = Column(UUID, ForeignKey("offers.id", ondelete="CASCADE"), nullable=False)
+    # TODO migrate Offer.offer_status to an "is_accepted" column here
+
+
 class UserRequest(Base):
     __tablename__ = "user_requests"
 

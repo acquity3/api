@@ -14,6 +14,7 @@ from src.database import (
     ChatRoom,
     Match,
     Offer,
+    OfferResponse,
     Round,
     Security,
     SellOrder,
@@ -620,7 +621,7 @@ class OfferService:
                 offer=offer, is_deal_closed=chat_room.is_deal_closed
             )
 
-    def accept_offer(self, chat_room_id, offer_id, user_id, user_type):
+    def update_offer(self, chat_room_id, offer_id, user_id, user_type, is_accept):
         with session_scope() as session:
             OfferService._check_deal_status(
                 session=session,
@@ -638,39 +639,24 @@ class OfferService:
                     session=session,
                     chat_room=chat_room,
                     offer=offer,
-                    offer_status="ACCEPTED",
-                    is_deal_closed=True,
+                    offer_status="ACCEPTED" if is_accept else "REJECTED",
+                    is_deal_closed=is_accept,
                 )
             offer = OfferService._get_current_offer(session=session, offer=offer)
-            return OfferService._serialize_chat_offer(
-                offer=offer, is_deal_closed=chat_room.is_deal_closed
-            )
 
-    def reject_offer(self, chat_room_id, offer_id, user_id, user_type):
-        with session_scope() as session:
-            OfferService._check_deal_status(
-                session=session,
-                chat_room_id=chat_room_id,
-                user_id=user_id,
-                user_type=user_type,
-            )
-            chat_room = session.query(ChatRoom).get(chat_room_id)
-            offer = session.query(Offer).get(offer_id)
-            if offer.offer_status != "PENDING":
-                raise InvalidRequestException("Offer is closed")
-            OfferService._update_offer_status(
-                session=session,
-                chat_room=chat_room,
-                offer=offer,
-                offer_status="REJECTED",
-                is_deal_closed=False,
-            )
-            offer = OfferService._get_current_offer(session=session, offer=offer)
-            OfferService._update_chatroom_datetime(
-                session=session, chat_room=chat_room, offer=offer
+            offer_response = OfferResponse(offer_id=offer["id"])
+            session.add(offer_response)
+
+            other_party_id = (
+                chat_room.seller_id
+                if chat_room.buyer_id == user_id
+                else chat_room.buyer_id
             )
             return OfferService._serialize_chat_offer(
-                offer=offer, is_deal_closed=chat_room.is_deal_closed
+                offer=offer,
+                is_deal_closed=chat_room.is_deal_closed,
+                offer_response=offer_response,
+                other_party_id=other_party_id,
             )
 
     @staticmethod
@@ -693,8 +679,19 @@ class OfferService:
             raise InvalidRequestException("There are still pending offers")
 
     @staticmethod
-    def _serialize_chat_offer(offer, is_deal_closed):
-        return {"type": "offer", "is_deal_closed": is_deal_closed, **offer}
+    def _serialize_chat_offer(
+        offer, is_deal_closed, offer_response=None, other_party_id=None
+    ):
+        if offer_response is None:
+            return {"type": "offer", "is_deal_closed": is_deal_closed, **offer}
+        else:
+            return {
+                "type": "offer_response",
+                "is_deal_closed": is_deal_closed,
+                **offer,
+                **offer_response,
+                "author_id": other_party_id,
+            }
 
     @staticmethod
     def _get_current_offer(session, offer):
@@ -744,6 +741,7 @@ class ChatService:
             )
             chats = session.query(Chat).all()
             offers = session.query(Offer).all()
+            offer_responses = session.query(OfferResponse).all()
 
             res = {}
 
@@ -763,14 +761,34 @@ class ChatService:
                     res[chat.chat_room_id]["chats"].append(
                         {"type": "chat", **chat.asdict()}
                     )
+
+            offer_d = {}
             for offer in offers:
                 if offer.chat_room_id in res:
+                    offer_d[str(offer.id)] = offer
+
                     res[offer.chat_room_id]["chats"].append(
                         {"type": "offer", **offer.asdict()}
                     )
 
                     if offer.offer_status != "REJECTED":
                         res[offer.chat_room_id]["latest_offer"] = offer.asdict()
+
+            other_party_id = (
+                chat_room.seller_id
+                if chat_room.buyer_id == user_id
+                else chat_room.buyer_id
+            )
+
+            for offer_resp in offer_responses:
+                res[str(chat_room.id)]["chats"].append(
+                    OfferService._serialize_chat_offer(
+                        offer=offer_d[offer_resp.offer_id],
+                        is_deal_closed=chat_room.is_deal_closed,
+                        offer_response=offer_resp,
+                        other_party_id=other_party_id,
+                    )
+                )
 
             for v in res.values():
                 v["chats"].sort(key=lambda x: x["created_at"])
