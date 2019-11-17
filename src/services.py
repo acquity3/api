@@ -662,7 +662,7 @@ class OfferService:
             return OfferService._serialize_chat_offer(
                 offer=offer,
                 is_deal_closed=chat_room.is_deal_closed,
-                offer_response=offer_response,
+                offer_response=offer_response.asdict(),
                 other_party_id=other_party_id,
             )
 
@@ -786,7 +786,7 @@ class ChatService:
                     OfferService._serialize_chat_offer(
                         offer=offer_d[offer_resp.offer_id],
                         is_deal_closed=chat_room.is_deal_closed,
-                        offer_response=offer_resp,
+                        offer_response=offer_resp.asdict(),
                         other_party_id=other_party_id,
                     )
                 )
