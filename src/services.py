@@ -653,6 +653,7 @@ class OfferService:
 
             offer_response = OfferResponse(offer_id=offer["id"])
             session.add(offer_response)
+            session.flush()
 
             other_party_id = (
                 chat_room.seller_id
@@ -766,7 +767,7 @@ class ChatService:
             offer_d = {}
             for offer in offers:
                 if offer.chat_room_id in res:
-                    offer_d[str(offer.id)] = offer.asdict()
+                    offer_d[str(offer.id)] = offer
 
                     res[offer.chat_room_id]["chats"].append(
                         {"type": "offer", **offer.asdict()}
@@ -775,16 +776,16 @@ class ChatService:
                     if offer.offer_status != "REJECTED":
                         res[offer.chat_room_id]["latest_offer"] = offer.asdict()
 
-            other_party_id = (
-                chat_room.seller_id
-                if chat_room.buyer_id == user_id
-                else chat_room.buyer_id
-            )
-
             for offer_resp in offer_responses:
+                offer = offer_d[offer_resp.offer_id]
+                other_party_id = (
+                    chat_room.seller_id
+                    if chat_room.buyer_id == offer.author_id
+                    else chat_room.buyer_id
+                )
                 res[str(chat_room.id)]["chats"].append(
                     OfferService._serialize_chat_offer(
-                        offer=offer_d[offer_resp.offer_id],
+                        offer=offer.asdict(),
                         is_deal_closed=chat_room.is_deal_closed,
                         offer_response=offer_resp.asdict(),
                         other_party_id=other_party_id,
