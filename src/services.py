@@ -2,12 +2,9 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
 import requests
-from sqlalchemy import and_
 from sqlalchemy.sql import func
-from sqlalchemy.sql.expression import false
 
 from src.database import (
-    ArchivedChatRoom,
     BannedPair,
     BuyOrder,
     Chat,
@@ -19,6 +16,7 @@ from src.database import (
     Security,
     SellOrder,
     User,
+    UserChatRoomAssociation,
     UserRequest,
     session_scope,
 )
@@ -525,12 +523,22 @@ class MatchService:
                 match = Match(buy_order_id=buy_order_id, sell_order_id=sell_order_id)
                 session.add(match)
                 session.flush()
-                chat_room = ChatRoom(
-                    seller_id=sell_order_to_seller_dict[sell_order_id],
-                    buyer_id=buy_order_to_buyer_dict[buy_order_id],
-                    match_id=str(match.id),
-                )
+
+                chat_room = ChatRoom(match_id=str(match.id))
                 session.add(chat_room)
+                session.flush()
+
+                buyer_assoc = UserChatRoomAssociation(
+                    user_id=buy_order_to_buyer_dict[buy_order_id],
+                    chat_room_id=str(chat_room.id),
+                    role="BUYER",
+                )
+                seller_assoc = UserChatRoomAssociation(
+                    user_id=sell_order_to_seller_dict[sell_order_id],
+                    chat_room_id=str(chat_room.id),
+                    role="SELLER",
+                )
+                session.add_all([buyer_assoc, seller_assoc])
 
             session.query(Round).get(round_id).is_concluded = True
 
@@ -593,15 +601,10 @@ class OfferService:
     def __init__(self, config):
         self.config = config
 
-    def create_new_offer(
-        self, chat_room_id, author_id, price, number_of_shares, user_type
-    ):
+    def create_new_offer(self, chat_room_id, author_id, price, number_of_shares):
         with session_scope() as session:
             OfferService._check_deal_status(
-                session=session,
-                chat_room_id=chat_room_id,
-                user_id=author_id,
-                user_type=user_type,
+                session=session, chat_room_id=chat_room_id, user_id=author_id
             )
 
             offers = session.query(Offer).filter_by(
@@ -620,21 +623,19 @@ class OfferService:
                 number_of_shares=number_of_shares,
                 author_id=str(author_id),
             )
-            offer = OfferService._get_current_offer(session=session, offer=offer)
-            OfferService._update_chatroom_datetime(
-                session=session, chat_room=chat_room, offer=offer
-            )
+            session.add(offer)
+            session.flush()
+            chat_room.updated_at = offer.created_at
+
+            offer_dict = offer.asdict()
             return OfferService._serialize_chat_offer(
-                offer=offer, is_deal_closed=chat_room.is_deal_closed
+                offer=offer_dict, is_deal_closed=chat_room.is_deal_closed
             )
 
-    def update_offer(self, chat_room_id, offer_id, user_id, user_type, is_accept):
+    def update_offer(self, chat_room_id, offer_id, user_id, is_accept):
         with session_scope() as session:
             OfferService._check_deal_status(
-                session=session,
-                chat_room_id=chat_room_id,
-                user_id=user_id,
-                user_type=user_type,
+                session=session, chat_room_id=chat_room_id, user_id=user_id
             )
             chat_room = session.query(ChatRoom).get(chat_room_id)
             offer = session.query(Offer).get(offer_id)
@@ -649,36 +650,39 @@ class OfferService:
                     offer_status="ACCEPTED" if is_accept else "REJECTED",
                     is_deal_closed=is_accept,
                 )
-            offer = OfferService._get_current_offer(session=session, offer=offer)
 
-            offer_response = OfferResponse(offer_id=offer["id"])
+            session.add(offer)
+            session.flush()
+
+            offer_response = OfferResponse(offer_id=str(offer.id))
             session.add(offer_response)
             session.flush()
 
-            other_party_id = (
-                chat_room.seller_id
-                if chat_room.buyer_id == offer["author_id"]
-                else chat_room.buyer_id
+            other_party_id = ChatRoomService._get_other_party_id(
+                chat_room_id=str(chat_room.id), user_id=offer.author_id
             )
             return OfferService._serialize_chat_offer(
-                offer=offer,
+                offer=offer.asdict(),
                 is_deal_closed=chat_room.is_deal_closed,
                 offer_response=offer_response.asdict(),
                 other_party_id=other_party_id,
             )
 
     @staticmethod
-    def _check_deal_status(session, chat_room_id, user_id, user_type):
+    def _check_deal_status(session, chat_room_id, user_id):
         chat_room = session.query(ChatRoom).get(chat_room_id)
-
-        OfferService._verify_user(
-            chat_room=chat_room, user_id=user_id, user_type=user_type
-        )
-
         if chat_room is None:
             raise ResourceNotFoundException("Chat room not found")
         if chat_room.is_deal_closed:
             raise InvalidRequestException("Deal is closed")
+
+        if (
+            session.query(UserChatRoomAssociation)
+            .filter_by(user_id=user_id, chat_room_id=chat_room_id)
+            .count()
+            == 0
+        ):
+            raise ResourceNotOwnedException("User is not in this chat room")
 
     @staticmethod
     def _serialize_chat_offer(
@@ -696,25 +700,6 @@ class OfferService:
             }
 
     @staticmethod
-    def _get_current_offer(session, offer):
-        session.add(offer)
-        session.flush()
-        session.refresh(offer)
-        return offer.asdict()
-
-    @staticmethod
-    def _update_chatroom_datetime(session, chat_room, offer):
-        chat_room.updated_at = offer.get("created_at")
-        session.commit()
-
-    @staticmethod
-    def _verify_user(chat_room, user_id, user_type):
-        if (user_type == "buyer" and chat_room.buyer_id != user_id) or (
-            user_type == "seller" and chat_room.seller_id != user_id
-        ):
-            raise ResourceNotOwnedException("Wrong user")
-
-    @staticmethod
     def _update_offer_status(session, offer, chat_room, offer_status, is_deal_closed):
         chat_room.updated_at = offer.created_at
         chat_room.is_deal_closed = is_deal_closed
@@ -729,16 +714,23 @@ class ChatService:
 
     @validate_input(GET_CHATS_BY_USER_ID_SCHEMA)
     def get_chats_by_user_id(self, user_id, as_buyer, as_seller):
-        buyer_filter = (ChatRoom.buyer_id == user_id) if as_buyer else false()
-        seller_filter = (ChatRoom.seller_id == user_id) if as_seller else false()
+        roles = []
+        if as_buyer:
+            roles.append("BUYER")
+        if as_seller:
+            roles.append("SELLER")
 
         with session_scope() as session:
             chat_room_queries = (
-                session.query(ChatRoom, Match, BuyOrder, SellOrder)
+                session.query(
+                    ChatRoom, UserChatRoomAssociation, Match, BuyOrder, SellOrder
+                )
                 .filter(ChatRoom.match_id == Match.id)
+                .filter(UserChatRoomAssociation.chat_room_id == ChatRoom.id)
                 .filter(Match.buy_order_id == BuyOrder.id)
                 .filter(Match.sell_order_id == SellOrder.id)
-                .filter(buyer_filter | seller_filter)
+                .filter(UserChatRoomAssociation.user_id == user_id)
+                .filter(UserChatRoomAssociation.role.in_(roles))
                 .all()
             )
             chats = session.query(Chat).all()
@@ -747,7 +739,7 @@ class ChatService:
 
             res = {}
 
-            for chat_room, match, buy_order, sell_order in chat_room_queries:
+            for chat_room, assoc, match, buy_order, sell_order in chat_room_queries:
                 chat_room_repr = ChatRoomService(self.config)._serialize_chat_room(
                     chat_room, user_id
                 )
@@ -778,10 +770,8 @@ class ChatService:
 
             for offer_resp in offer_responses:
                 offer = offer_d[offer_resp.offer_id]
-                other_party_id = (
-                    chat_room.seller_id
-                    if chat_room.buyer_id == offer.author_id
-                    else chat_room.buyer_id
+                other_party_id = ChatRoomService._get_other_party_id(
+                    chat_room_id=str(chat_room.id), user_id=offer.author_id
                 )
                 res[str(chat_room.id)]["chats"].append(
                     OfferService._serialize_chat_offer(
@@ -796,10 +786,7 @@ class ChatService:
                 v["chats"].sort(key=lambda x: x["created_at"])
 
             archived_room_ids = set(
-                r.chat_room_id
-                for r in session.query(ArchivedChatRoom)
-                .filter_by(user_id=user_id)
-                .all()
+                q[1].chat_room_id for q in chat_room_queries if q[1].is_archived
             )
 
         unarchived_res = {}
@@ -812,16 +799,21 @@ class ChatService:
 
         return {"archived": archived_res, "unarchived": unarchived_res}
 
-    def create_new_message(self, chat_room_id, message, author_id, user_type):
+    def create_new_message(self, chat_room_id, message, author_id):
         with session_scope() as session:
             chat_room = session.query(ChatRoom).get(chat_room_id)
             if chat_room is None:
                 raise ResourceNotFoundException("Chat room not found")
-            ChatService._verify_user(
-                chat_room=chat_room, user_id=author_id, user_type=user_type
-            )
             if chat_room.is_disbanded:
                 raise ResourceNotFoundException("Chat room is disbanded")
+
+            if (
+                session.query(UserChatRoomAssociation)
+                .filter_by(user_id=author_id, chat_room_id=chat_room_id)
+                .count()
+                == 0
+            ):
+                raise ResourceNotOwnedException("User is not in this chat room")
 
             first_chat = (
                 session.query(Chat).filter_by(chat_room_id=chat_room_id).count() == 0
@@ -832,45 +824,20 @@ class ChatService:
                 message=message,
                 author_id=str(author_id),
             )
-            message = ChatService._get_current_message(session=session, message=message)
-            ChatService._update_chatroom_datetime(
-                session=session, chat_room=chat_room, message=message
-            )
+            session.add(message)
+            session.flush()
+            chat_room.updated_at = message.created_at
 
             if first_chat:
-                other_party_email = (
-                    session.query(User)
-                    .get(
-                        chat_room.buyer_id
-                        if user_type == "seller"
-                        else chat_room.seller_id
-                    )
-                    .email
+                other_party_id = ChatRoomService._get_other_party_id(
+                    chat_room_id=str(chat_room.id), user_id=author_id
                 )
+                other_party_email = session.query(User).get(other_party_id).email
                 self.email_service.send_email(
                     emails=[other_party_email], template="new_chat_message"
                 )
 
-            return {"type": "chat", **message}
-
-    @staticmethod
-    def _get_current_message(session, message):
-        session.add(message)
-        session.flush()
-        session.refresh(message)
-        return message.asdict()
-
-    @staticmethod
-    def _update_chatroom_datetime(session, chat_room, message):
-        chat_room.updated_at = message.get("created_at")
-        session.commit()
-
-    @staticmethod
-    def _verify_user(chat_room, user_id, user_type):
-        if (user_type == "buyer" and chat_room.buyer_id != user_id) or (
-            user_type == "seller" and chat_room.seller_id != user_id
-        ):
-            raise ResourceNotOwnedException("Wrong user")
+            return {"type": "chat", **message.asdict()}
 
 
 class ChatRoomService:
@@ -881,12 +848,18 @@ class ChatRoomService:
     def disband_chatroom(self, user_id, chat_room_id):
         with session_scope() as session:
             chat_room = session.query(ChatRoom).get(chat_room_id)
-            if user_id not in [chat_room.buyer_id, chat_room.seller_id]:
+            assoc = [
+                a.asdict()
+                for a in session.query(UserChatRoomAssociation)
+                .filter_by(chat_room_id=chat_room_id)
+                .all()
+            ]
+            if user_id not in [a["user_id"] for a in assoc]:
                 raise InvalidRequestException("Not in chat room")
             chat_room.is_disbanded = True
 
         BannedPairService(self.config)._ban_user(
-            my_user_id=chat_room.buyer_id, other_user_id=chat_room.seller_id
+            my_user_id=assoc[0]["user_id"], other_user_id=assoc[1]["user_id"]
         )
 
         return {"chat_room_id": chat_room_id}
@@ -894,100 +867,76 @@ class ChatRoomService:
     @validate_input({"user_id": UUID_RULE, "chat_room_id": UUID_RULE})
     def archive_room(self, user_id, chat_room_id):
         with session_scope() as session:
-            archived_chat_room = ArchivedChatRoom(
+            session.query(UserChatRoomAssociation).filter_by(
                 user_id=user_id, chat_room_id=chat_room_id
-            )
-            session.add(archived_chat_room)
+            ).one().is_archived = True
+
         return {"chat_room_id": chat_room_id}
 
     @validate_input({"user_id": UUID_RULE})
     def get_chat_rooms_by_user_id(self, user_id):
         with session_scope() as session:
             chat_rooms = (
-                session.query(ChatRoom)
-                .filter(
-                    (ChatRoom.buyer_id == user_id) | (ChatRoom.seller_id == user_id)
-                )
+                session.query(UserChatRoomAssociation, ChatRoom)
+                .filter(UserChatRoomAssociation.chat_room_id == ChatRoom.id)
+                .filter_by(user_id=user_id)
                 .all()
             )
-            return [chat_room.asdict() for chat_room in chat_rooms]
+            return [chat_room[1].asdict() for chat_room in chat_rooms]
 
     @validate_input({"user_id": UUID_RULE, "chat_room_id": UUID_RULE})
     def reveal_identity(self, chat_room_id, user_id):
         with session_scope() as session:
-            chat_room = session.query(ChatRoom).get(chat_room_id)
+            assoc = (
+                session.query(UserChatRoomAssociation)
+                .filter_by(chat_room_id=chat_room_id, user_id=user_id)
+                .one()
+            )
+            assoc.is_revealed = True
 
-            if user_id not in (chat_room.seller_id, chat_room.buyer_id):
-                raise ResourceNotOwnedException("Wrong user.")
-
-            if not chat_room.is_deal_closed:
-                raise UnauthorizedException("Need to have an accepted offer.")
-
-            if chat_room.seller_id == user_id:
-                chat_room.is_seller_revealed = True
-            elif chat_room.buyer_id == user_id:
-                chat_room.is_buyer_revealed = True
-
-            if chat_room.is_buyer_revealed and chat_room.is_seller_revealed:
-                buyer = session.query(User).get(chat_room.buyer_id)
-                seller = session.query(User).get(chat_room.buyer_id)
+            everyone = (
+                session.query(UserChatRoomAssociation, User)
+                .filter(UserChatRoomAssociation.user_id == User.id)
+                .filter(UserChatRoomAssociation.chat_room_id == chat_room_id)
+                .all()
+            )
+            is_all_revealed = all(a[0].is_revealed for a in everyone)
+            if is_all_revealed:
                 return {
                     **ChatRoomService(self.config)._serialize_chat_room(
-                        chat_room, user_id
+                        session.query(ChatRoom).get(chat_room_id), user_id
                     ),
-                    "buyer": {"email": buyer.email, "full_name": buyer.full_name},
-                    "seller": {"email": seller.email, "full_name": seller.full_name},
+                    **{
+                        a[1].user_id: {"email": a[1].email, "full_name": a[1].full_name}
+                        for a in everyone
+                    },
                 }
-
-    @staticmethod
-    def _filter_chat_rooms_by_archive(user_id, user_type, session, is_archived):
-        user_type_queries = ChatRoomService._get_user_type_filter(
-            user_type=user_type, user_id=user_id
-        )
-        archive_queries = ChatRoomService._get_archive_filter(is_archived=is_archived)
-        results = (
-            session.query(ChatRoom, Match, BuyOrder, SellOrder)
-            .filter(user_type_queries)
-            .outerjoin(
-                ArchivedChatRoom,
-                and_(
-                    ChatRoom.id == ArchivedChatRoom.chat_room_id,
-                    ArchivedChatRoom.user_id == user_id,
-                ),
-            )
-            .filter(archive_queries)
-            .outerjoin(Match, ChatRoom.match_id == Match.id)
-            .outerjoin(BuyOrder, Match.buy_order_id == BuyOrder.id)
-            .outerjoin(SellOrder, Match.sell_order_id == SellOrder.id)
-            .all()
-        )
-        return results
-
-    @staticmethod
-    def _get_user_type_filter(user_type, user_id):
-        if user_type == "buyer":
-            return ChatRoom.buyer_id == user_id
-        else:
-            return ChatRoom.seller_id == user_id
-
-    @staticmethod
-    def _get_archive_filter(is_archived):
-        if is_archived:
-            return ArchivedChatRoom.user_id.isnot(None)
-        else:
-            return ArchivedChatRoom.user_id.is_(None)
 
     @staticmethod
     def _serialize_chat_room(chat_room, user_id):
         res = chat_room.asdict()
-        if res["buyer_id"] == user_id:
-            res["is_revealed"] = res["is_buyer_revealed"]
-        else:
-            res["is_revealed"] = res["is_seller_revealed"]
-        res.pop("is_buyer_revealed")
-        res.pop("is_seller_revealed")
+        res["other_party_id"] = ChatRoomService._get_other_party_id(
+            str(chat_room.id), user_id
+        )
+        with session_scope() as session:
+            res["is_revealed"] = (
+                session.query(UserChatRoomAssociation)
+                .filter_by(chat_room_id=str(chat_room.id), user_id=user_id)
+                .is_revealed
+            )
 
         return res
+
+    @staticmethod
+    def _get_other_party_id(chat_room_id, user_id):
+        with session_scope() as session:
+            return (
+                session.query(UserChatRoomAssociation)
+                .filter_by(chat_room_id=chat_room_id)
+                .filter(UserChatRoomAssociation.user_id != user_id)
+                .one()
+                .user_id
+            )
 
 
 class LinkedInLogin:

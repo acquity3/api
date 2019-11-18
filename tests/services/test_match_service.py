@@ -1,7 +1,7 @@
 from unittest.mock import call, patch
 
 from src.config import APP_CONFIG
-from src.database import ChatRoom, Match, Round, session_scope
+from src.database import Match, Round, UserChatRoomAssociation, session_scope
 from src.services import MatchService
 from tests.fixtures import (
     create_banned_pair,
@@ -64,9 +64,16 @@ def test_run_matches():
         assert match.buy_order_id == buy_order_id
         assert match.sell_order_id == sell_order_id
 
-        chat_room = session.query(ChatRoom).one()
-        assert chat_room.buyer_id == buy_order["user_id"]
-        assert chat_room.seller_id == sell_order["user_id"]
+        assert (
+            session.query(UserChatRoomAssociation)
+            .filter_by(user_id=buy_order["user_id"])
+            .one()
+            .chat_room_id
+            == session.query(UserChatRoomAssociation)
+            .filter_by(user_id=sell_order["user_id"])
+            .one()
+            .chat_room_id
+        )
 
         assert session.query(Round).get(round["id"]).is_concluded
 

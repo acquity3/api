@@ -8,6 +8,7 @@ from src.database import (
     Security,
     SellOrder,
     User,
+    UserChatRoomAssociation,
     session_scope,
 )
 
@@ -168,27 +169,41 @@ def seed_db():
             .id
         )
         # create chatrooms
-        if (
-            session.query(ChatRoom).filter_by(seller_id=str(brandon_gmail_id)).count()
-            == 0
-        ):
-            session.add(
-                ChatRoom(
-                    buyer_id=str(brandon_yahoo_id),
-                    seller_id=str(brandon_gmail_id),
-                    match_id=str(match_A),
-                )
+        if session.query(ChatRoom).filter_by(match_id=str(match_A)).count() == 0:
+            chat_room = ChatRoom(match_id=str(match_A))
+            session.add(chat_room)
+            session.flush()
+            session.add_all(
+                [
+                    UserChatRoomAssociation(
+                        chat_room_id=str(chat_room.id),
+                        user_id=str(brandon_gmail_id),
+                        role="BUYER",
+                    ),
+                    UserChatRoomAssociation(
+                        chat_room_id=str(chat_room.id),
+                        user_id=str(brandon_yahoo_id),
+                        role="SELLER",
+                    ),
+                ]
             )
-        if (
-            session.query(ChatRoom).filter_by(seller_id=str(brandon_yahoo_id)).count()
-            == 0
-        ):
-            session.add(
-                ChatRoom(
-                    buyer_id=str(brandon_gmail_id),
-                    seller_id=str(brandon_yahoo_id),
-                    match_id=str(match_B),
-                )
+        if session.query(ChatRoom).filter_by(match_id=str(match_B)).count() == 0:
+            chat_room = ChatRoom(match_id=str(match_B))
+            session.add(chat_room)
+            session.flush()
+            session.add_all(
+                [
+                    UserChatRoomAssociation(
+                        chat_room_id=str(chat_room.id),
+                        user_id=str(brandon_yahoo_id),
+                        role="BUYER",
+                    ),
+                    UserChatRoomAssociation(
+                        chat_room_id=str(chat_room.id),
+                        user_id=str(brandon_gmail_id),
+                        role="SELLER",
+                    ),
+                ]
             )
 
 

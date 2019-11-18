@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 
 from src.database import (
-    ArchivedChatRoom,
     BannedPair,
     BuyOrder,
     Chat,
@@ -180,22 +179,6 @@ def create_chat_room(id=0, **kwargs):
         session.add(chat_room)
         session.commit()
         return chat_room.asdict()
-
-
-def create_archived_chat_room(id=0, **kwargs):
-    with session_scope() as session:
-        archived_chat_room = ArchivedChatRoom(
-            **combine_dicts(
-                kwargs,
-                {
-                    "user_id": lambda: create_user(str(id) + "0")["id"],
-                    "chat_room_id": lambda: create_chat_room(str(id) + "1")["id"],
-                },
-            )
-        )
-        session.add(archived_chat_room)
-        session.commit()
-        return archived_chat_room.asdict()
 
 
 def create_chat(id=0, **kwargs):

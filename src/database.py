@@ -195,26 +195,26 @@ class BannedPair(Base):
 class ChatRoom(Base):
     __tablename__ = "chat_rooms"
 
-    seller_id = Column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    buyer_id = Column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     is_deal_closed = Column(Boolean, nullable=False, server_default="f")
     is_disbanded = Column(Boolean, nullable=False, server_default="f")
-    is_buyer_revealed = Column(Boolean, nullable=False, server_default="f")
-    is_seller_revealed = Column(Boolean, nullable=False, server_default="f")
     friendly_name = Column(String, nullable=False, default=generate_friendly_name)
     match_id = Column(
         UUID, ForeignKey("matches.id", ondelete="CASCADE"), nullable=False
     )
 
-    __table_args__ = (UniqueConstraint("seller_id", "buyer_id"),)
 
-
-class ArchivedChatRoom(Base):
-    __tablename__ = "archived_chat_rooms"
+class UserChatRoomAssociation(Base):
+    __tablename__ = "user_chat_room_association"
     user_id = Column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     chat_room_id = Column(
         UUID, ForeignKey("chat_rooms.id", ondelete="CASCADE"), nullable=False
     )
+    role = Column(Enum("BUYER", "SELLER", name="user_type"), nullable=False)
+    is_revealed = Column(Boolean, nullable=False, server_default="f")
+    is_archived = Column(Boolean, nullable=False, server_default="f")
+    last_read_id = Column(UUID, ForeignKey("chats.id", ondelete="CASCADE"))
+
+    __table_args__ = (UniqueConstraint("user_id", "chat_room_id"),)
 
 
 class Chat(Base):
