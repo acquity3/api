@@ -85,7 +85,6 @@ class ChatSocketService(socketio.AsyncNamespace):
             chat_room_id=room_id,
             offer_id=data.get("offer_id"),
             user_id=user_id,
-            user_type=data.get("user_type"),
             is_accept=False,
         )
         await self.emit("res_new_event", offer, room=room_id)
