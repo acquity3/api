@@ -922,6 +922,7 @@ class ChatRoomService:
             res["is_revealed"] = (
                 session.query(UserChatRoomAssociation)
                 .filter_by(chat_room_id=str(chat_room.id), user_id=user_id)
+                .one()
                 .is_revealed
             )
 
