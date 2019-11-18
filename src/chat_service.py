@@ -21,7 +21,7 @@ class ChatSocketService(socketio.AsyncNamespace):
         self.config = config
 
     async def _authenticate(self, token):
-        linkedin_user = self.linkedin_login.get_user_profile(token=token)
+        linkedin_user = self.linkedin_login.get_linkedin_user(token=token)
         user = self.user_service.get_user_by_linkedin_id(
             provider_user_id=linkedin_user.get("provider_user_id")
         )
