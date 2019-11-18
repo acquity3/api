@@ -1,15 +1,17 @@
 from datetime import datetime, timedelta
 
-import pytest
-
 from src.config import APP_CONFIG
 from src.services import ChatService
 from tests.fixtures import (
+    create_buy_order,
     create_chat,
     create_chat_room,
     create_match,
     create_offer,
+    create_offer_response,
+    create_sell_order,
     create_user,
+    create_user_chat_room_association,
 )
 from tests.utils import assert_dict_in
 
@@ -25,150 +27,324 @@ chat_service = ChatService(config=APP_CONFIG)
 # - test is_revealed behavior
 # - test latest_offer
 # - test offer_response
-@pytest.mark.xfail
-def test_get_chats_by_user_id():
-    me = create_user()
 
-    match1 = create_match("345")
-    match2 = create_match("456")
-    chat_room1 = create_chat_room(
-        "1", buyer_id=me["id"], is_buyer_revealed=False, match_id=match1["id"]
-    )
-    chat_room2 = create_chat_room(
-        "2", seller_id=me["id"], is_seller_revealed=True, match_id=match2["id"]
-    )
-    create_chat_room("127")
 
-    archived_match = create_match("789")
-    archived_chat_room = create_chat_room(
-        "3", seller_id=me["id"], is_seller_revealed=False, match_id=archived_match["id"]
+def test_get_chats_by_user_id__chats():
+    user = create_user("00")
+    other_party = create_user("10")
+    chat_room = create_chat_room("01")
+    create_user_chat_room_association(
+        "02", user_id=user["id"], chat_room_id=chat_room["id"], is_archived=False
     )
-    # archive chat room
-
-    chat_room1["is_revealed"] = False
-    chat_room2["is_revealed"] = True
-    archived_chat_room["is_revealed"] = False
-    for r in [chat_room1, chat_room2, archived_chat_room]:
-        r.pop("is_buyer_revealed")
-        r.pop("is_seller_revealed")
-
-    chat_room1_chat1 = create_chat(
-        "x",
-        chat_room_id=chat_room1["id"],
-        author_id=me["id"],
-        created_at=datetime.now() + timedelta(hours=2),
+    create_user_chat_room_association(
+        "12", user_id=other_party["id"], chat_room_id=chat_room["id"]
     )
-    chat_room1_chat2 = create_chat(
-        "4",
-        chat_room_id=chat_room1["id"],
-        author_id=chat_room1["seller_id"],
-        created_at=datetime.now() + timedelta(hours=3),
-    )
-    chat_room1_offer = create_offer(
-        "5",
-        chat_room_id=chat_room1["id"],
-        author_id=me["id"],
-        created_at=datetime.now() + timedelta(hours=1),
-        offer_status="ACCEPTED",
-    )
-    chat_room2_chat1 = create_chat(
-        "6",
-        chat_room_id=chat_room2["id"],
-        author_id=me["id"],
-        created_at=datetime.now() + timedelta(hours=2),
-    )
-    chat_room2_chat2 = create_chat(
-        "7",
-        chat_room_id=chat_room2["id"],
-        author_id=chat_room2["buyer_id"],
-        created_at=datetime.now() + timedelta(hours=3),
-    )
-    chat_room2_offer = create_offer(
-        "8",
-        chat_room_id=chat_room2["id"],
-        author_id=me["id"],
-        created_at=datetime.now() + timedelta(hours=1),
-        offer_status="REJECTED",
-    )
-    archived_chat_room_chat1 = create_chat(
-        "9",
-        chat_room_id=archived_chat_room["id"],
-        author_id=me["id"],
-        created_at=datetime.now() + timedelta(hours=2),
-    )
-    archived_chat_room_chat2 = create_chat(
-        "315",
-        chat_room_id=archived_chat_room["id"],
-        author_id=archived_chat_room["buyer_id"],
-        created_at=datetime.now() + timedelta(hours=3),
-    )
-    archived_chat_room_offer = create_offer(
-        "203",
-        chat_room_id=archived_chat_room["id"],
-        author_id=me["id"],
-        created_at=datetime.now() + timedelta(hours=1),
-        offer_status="PENDING",
+    chat = create_chat("03", chat_room_id=chat_room["id"], author_id=user["id"])
+    other_chat = create_chat(
+        "13", chat_room_id=chat_room["id"], author_id=other_party["id"]
     )
 
     res = chat_service.get_chats_by_user_id(
-        user_id=me["id"], as_buyer=True, as_seller=True
+        user_id=user["id"], as_buyer=True, as_seller=True
     )
 
-    assert len(res["archived"]) == 1
-    res_archived_chat_room = res["archived"][archived_chat_room["id"]]
-    assert_dict_in(archived_chat_room, res_archived_chat_room)
-    assert res_archived_chat_room["buy_order"]["id"] == archived_match["buy_order_id"]
-    assert res_archived_chat_room["sell_order"]["id"] == archived_match["sell_order_id"]
-    assert archived_chat_room_offer == res_archived_chat_room["latest_offer"]
+    res_room = res["unarchived"][chat_room["id"]]
+    assert_dict_in(chat_room, res_room)
 
-    res_archived_chat_room_chats = res_archived_chat_room["chats"]
-    assert_dict_in(archived_chat_room_offer, res_archived_chat_room_chats[0])
-    assert_dict_in(archived_chat_room_chat1, res_archived_chat_room_chats[1])
-    assert_dict_in(archived_chat_room_chat2, res_archived_chat_room_chats[2])
+    res_chats = res_room["chats"]
+    assert {**chat, "type": "chat"} in res_chats
+    assert {**other_chat, "type": "chat"} in res_chats
 
-    assert len(res["unarchived"]) == 2
-    unarchived_chat_rooms = res["unarchived"]
 
-    assert_dict_in(chat_room1, unarchived_chat_rooms[chat_room1["id"]])
-    assert (
-        unarchived_chat_rooms[chat_room1["id"]]["buy_order"]["id"]
-        == match1["buy_order_id"]
+def test_get_chats_by_user_id__offers():
+    user = create_user("00")
+    other_party = create_user("10")
+    chat_room = create_chat_room("01")
+    create_user_chat_room_association(
+        "02", user_id=user["id"], chat_room_id=chat_room["id"], is_archived=False
     )
-    assert (
-        unarchived_chat_rooms[chat_room1["id"]]["sell_order"]["id"]
-        == match1["sell_order_id"]
+    create_user_chat_room_association(
+        "12", user_id=other_party["id"], chat_room_id=chat_room["id"]
     )
-    assert unarchived_chat_rooms[chat_room1["id"]]["latest_offer"] == chat_room1_offer
-
-    res_chat_room1_chats = unarchived_chat_rooms[chat_room1["id"]]["chats"]
-    assert_dict_in(chat_room1_offer, res_chat_room1_chats[0])
-    assert_dict_in(chat_room1_chat1, res_chat_room1_chats[1])
-    assert_dict_in(chat_room1_chat2, res_chat_room1_chats[2])
-
-    assert_dict_in(chat_room2, unarchived_chat_rooms[chat_room2["id"]])
-    assert (
-        unarchived_chat_rooms[chat_room2["id"]]["buy_order"]["id"]
-        == match2["buy_order_id"]
+    offer = create_offer("03", chat_room_id=chat_room["id"], author_id=user["id"])
+    other_offer = create_offer(
+        "13", chat_room_id=chat_room["id"], author_id=other_party["id"]
     )
-    assert (
-        unarchived_chat_rooms[chat_room2["id"]]["sell_order"]["id"]
-        == match2["sell_order_id"]
-    )
-    assert unarchived_chat_rooms[chat_room2["id"]]["latest_offer"] is None
 
-    res_chat_room2_chats = unarchived_chat_rooms[chat_room2["id"]]["chats"]
-    assert_dict_in(chat_room2_offer, res_chat_room2_chats[0])
-    assert_dict_in(chat_room2_chat1, res_chat_room2_chats[1])
-    assert_dict_in(chat_room2_chat2, res_chat_room2_chats[2])
+    res = chat_service.get_chats_by_user_id(
+        user_id=user["id"], as_buyer=True, as_seller=True
+    )
+
+    res_room = res["unarchived"][chat_room["id"]]
+    assert_dict_in(chat_room, res_room)
+
+    res_chats = res_room["chats"]
+    assert {**offer, "type": "offer"} in res_chats
+    assert {**other_offer, "type": "offer"} in res_chats
+
+
+def test_get_chats_by_user_id__offer_responses():
+    user = create_user("00")
+    other_party = create_user("10")
+    chat_room = create_chat_room("01")
+    create_user_chat_room_association(
+        "02", user_id=user["id"], chat_room_id=chat_room["id"], is_archived=False
+    )
+    create_user_chat_room_association(
+        "12", user_id=other_party["id"], chat_room_id=chat_room["id"]
+    )
+    offer = create_offer("03", chat_room_id=chat_room["id"], author_id=user["id"])
+    resp = create_offer_response("04", offer_id=offer["id"])
+
+    res = chat_service.get_chats_by_user_id(
+        user_id=user["id"], as_buyer=True, as_seller=True
+    )
+
+    res_room = res["unarchived"][chat_room["id"]]
+    assert_dict_in(chat_room, res_room)
+
+    res_chats = res_room["chats"]
+    assert {**offer, "type": "offer"} in res_chats
+    assert {
+        **offer,
+        **resp,
+        "author_id": other_party["id"],
+        "is_deal_closed": False,
+        "type": "offer_response",
+    } in res_chats
+
+
+def test_get_chats_by_user_id__offer_responses_not_in_room():
+    user = create_user("00")
+    other_party = create_user("10")
+    chat_room = create_chat_room("01")
+    create_user_chat_room_association(
+        "02", user_id=user["id"], chat_room_id=chat_room["id"], is_archived=False
+    )
+    create_user_chat_room_association(
+        "12", user_id=other_party["id"], chat_room_id=chat_room["id"]
+    )
+    offer = create_offer("03", chat_room_id=chat_room["id"], author_id=user["id"])
+    create_offer_response("04")
+
+    res = chat_service.get_chats_by_user_id(
+        user_id=user["id"], as_buyer=True, as_seller=True
+    )
+
+    res_room = res["unarchived"][chat_room["id"]]
+    assert_dict_in(chat_room, res_room)
+
+    res_chats = res_room["chats"]
+    assert {**offer, "type": "offer"} in res_chats
+    assert "offer_resp" not in [c["type"] for c in res_chats]
+
+
+def test_get_chats_by_user_id__archived():
+    user = create_user("00")
+    other_party = create_user("10")
+    chat_room = create_chat_room("01")
+    create_user_chat_room_association(
+        "02", user_id=user["id"], chat_room_id=chat_room["id"], is_archived=True
+    )
+    create_user_chat_room_association(
+        "12", user_id=other_party["id"], chat_room_id=chat_room["id"]
+    )
+
+    res = chat_service.get_chats_by_user_id(
+        user_id=user["id"], as_buyer=True, as_seller=True
+    )
+
+    res_room = res["archived"][chat_room["id"]]
+    assert_dict_in(chat_room, res_room)
+
+
+def test_get_chats_by_user_id__not_in_room():
+    user = create_user("00")
+    create_chat_room("01")
+
+    res = chat_service.get_chats_by_user_id(
+        user_id=user["id"], as_buyer=True, as_seller=True
+    )
+
+    assert len(res["unarchived"]) == 0
+    assert len(res["archived"]) == 0
+
+
+def test_get_chats_by_user_id__as_buyer_seller():
+    user = create_user("00")
+    other_party = create_user("10")
+
+    chat_room = create_chat_room("01")
+    create_user_chat_room_association(
+        "02",
+        user_id=user["id"],
+        chat_room_id=chat_room["id"],
+        is_archived=False,
+        role="BUYER",
+    )
+    create_user_chat_room_association(
+        "12", user_id=other_party["id"], chat_room_id=chat_room["id"], role="SELLER"
+    )
+
+    chat_room2 = create_chat_room("11")
+    create_user_chat_room_association(
+        "22",
+        user_id=user["id"],
+        chat_room_id=chat_room2["id"],
+        is_archived=False,
+        role="SELLER",
+    )
+    create_user_chat_room_association(
+        "32", user_id=other_party["id"], chat_room_id=chat_room2["id"], role="BUYER"
+    )
 
     res_buyer = chat_service.get_chats_by_user_id(
-        user_id=me["id"], as_buyer=True, as_seller=False
+        user_id=user["id"], as_buyer=True, as_seller=False
     )
     assert len(res_buyer["unarchived"]) == 1
-    assert chat_room1["id"] in res_buyer["unarchived"]
+    assert chat_room["id"] in res_buyer["unarchived"]
 
     res_seller = chat_service.get_chats_by_user_id(
-        user_id=me["id"], as_buyer=False, as_seller=True
+        user_id=user["id"], as_buyer=False, as_seller=True
     )
     assert len(res_seller["unarchived"]) == 1
     assert chat_room2["id"] in res_seller["unarchived"]
+
+
+def test_get_chats_by_user_id__buy_sell_order():
+    user = create_user("00")
+    other_party = create_user("10")
+
+    buy_order = create_buy_order("02", user_id=user["id"])
+    sell_order = create_sell_order("03", user_id=user["id"])
+    match = create_match(
+        "04", buy_order_id=buy_order["id"], sell_order_id=sell_order["id"]
+    )
+
+    chat_room = create_chat_room("01", match_id=match["id"])
+    create_user_chat_room_association(
+        "02", user_id=user["id"], chat_room_id=chat_room["id"], is_archived=False
+    )
+    create_user_chat_room_association(
+        "12", user_id=other_party["id"], chat_room_id=chat_room["id"]
+    )
+
+    res = chat_service.get_chats_by_user_id(
+        user_id=user["id"], as_buyer=True, as_seller=True
+    )
+
+    res_room = res["unarchived"][chat_room["id"]]
+    assert buy_order == res_room["buy_order"]
+    assert sell_order == res_room["sell_order"]
+
+
+def test_get_chats_by_user_id__is_revealed():
+    user = create_user("00")
+    other_party = create_user("10")
+
+    chat_room = create_chat_room("01")
+    create_user_chat_room_association(
+        "02",
+        user_id=user["id"],
+        chat_room_id=chat_room["id"],
+        is_archived=False,
+        is_revealed=True,
+    )
+    create_user_chat_room_association(
+        "12",
+        user_id=other_party["id"],
+        chat_room_id=chat_room["id"],
+        is_archived=False,
+        is_revealed=False,
+    )
+
+    assert chat_service.get_chats_by_user_id(
+        user_id=user["id"], as_buyer=True, as_seller=True
+    )["unarchived"][chat_room["id"]]["is_revealed"]
+    assert not chat_service.get_chats_by_user_id(
+        user_id=other_party["id"], as_buyer=True, as_seller=True
+    )["unarchived"][chat_room["id"]]["is_revealed"]
+
+
+def test_get_chats_by_user_id__other_party_id():
+    user = create_user("00")
+    other_party = create_user("10")
+
+    chat_room = create_chat_room("01")
+    create_user_chat_room_association(
+        "02", user_id=user["id"], chat_room_id=chat_room["id"], is_archived=False
+    )
+    create_user_chat_room_association(
+        "12", user_id=other_party["id"], chat_room_id=chat_room["id"]
+    )
+
+    assert (
+        chat_service.get_chats_by_user_id(
+            user_id=user["id"], as_buyer=True, as_seller=True
+        )["unarchived"][chat_room["id"]]["other_party_id"]
+        == other_party["id"]
+    )
+
+
+def test_get_chats_by_user_id__created_at_sort():
+    user = create_user("00")
+    other_party = create_user("10")
+
+    chat_room = create_chat_room("01")
+    create_user_chat_room_association(
+        "02", user_id=user["id"], chat_room_id=chat_room["id"], is_archived=False
+    )
+    create_user_chat_room_association(
+        "12", user_id=other_party["id"], chat_room_id=chat_room["id"]
+    )
+
+    chat = create_chat(
+        "03",
+        chat_room_id=chat_room["id"],
+        author_id=user["id"],
+        created_at=datetime.now(),
+    )
+    offer = create_offer(
+        "04",
+        chat_room_id=chat_room["id"],
+        author_id=user["id"],
+        created_at=datetime.now() - timedelta(hours=1),
+    )
+    resp = create_offer_response(
+        "05", offer_id=offer["id"], created_at=datetime.now() + timedelta(hours=1)
+    )
+
+    res_chats = chat_service.get_chats_by_user_id(
+        user_id=user["id"], as_buyer=True, as_seller=True
+    )["unarchived"][chat_room["id"]]["chats"]
+    assert [r["id"] for r in res_chats] == [offer["id"], chat["id"], resp["id"]]
+
+
+def test_get_chats_by_user_id__latest_offer():
+    user = create_user("00")
+    other_party = create_user("10")
+
+    chat_room = create_chat_room("01")
+    create_user_chat_room_association(
+        "02", user_id=user["id"], chat_room_id=chat_room["id"], is_archived=False
+    )
+    create_user_chat_room_association(
+        "12", user_id=other_party["id"], chat_room_id=chat_room["id"]
+    )
+
+    pending_offer = create_offer(
+        "03", chat_room_id=chat_room["id"], author_id=user["id"], offer_status="PENDING"
+    )
+    create_offer(
+        "04",
+        chat_room_id=chat_room["id"],
+        author_id=user["id"],
+        offer_status="REJECTED",
+    )
+
+    assert (
+        pending_offer
+        == chat_service.get_chats_by_user_id(
+            user_id=user["id"], as_buyer=True, as_seller=True
+        )["unarchived"][chat_room["id"]]["latest_offer"]
+    )

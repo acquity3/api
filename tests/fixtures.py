@@ -7,10 +7,12 @@ from src.database import (
     ChatRoom,
     Match,
     Offer,
+    OfferResponse,
     Round,
     Security,
     SellOrder,
     User,
+    UserChatRoomAssociation,
     UserRequest,
     session_scope,
 )
@@ -70,6 +72,10 @@ def attributes_for_chat(id=0, **kwargs):
 
 def attributes_for_offer(id=0, **kwargs):
     return {"number_of_shares": 20 + int(id), "price": 30 + int(id), **kwargs}
+
+
+def attributes_for_user_chat_room_association(id=0, **kwargs):
+    return {"role": "BUYER", **kwargs}
 
 
 def create_user(id="", **kwargs):
@@ -168,12 +174,7 @@ def create_chat_room(id=0, **kwargs):
     with session_scope() as session:
         chat_room = ChatRoom(
             **combine_dicts(
-                kwargs,
-                {
-                    "buyer_id": lambda: create_user(str(id) + "0")["id"],
-                    "seller_id": lambda: create_user(str(id) + "1")["id"],
-                    "match_id": lambda: create_match(str(id) + "2")["id"],
-                },
+                kwargs, {"match_id": lambda: create_match(str(id) + "2")["id"]}
             )
         )
         session.add(chat_room)
@@ -211,6 +212,34 @@ def create_offer(id=0, **kwargs):
         session.add(offer)
         session.commit()
         return offer.asdict()
+
+
+def create_offer_response(id=0, **kwargs):
+    with session_scope() as session:
+        resp = OfferResponse(
+            **combine_dicts(
+                kwargs, {"offer_id": lambda: create_offer(str(id) + "0")["id"]}
+            )
+        )
+        session.add(resp)
+        session.commit()
+        return resp.asdict()
+
+
+def create_user_chat_room_association(id=0, **kwargs):
+    with session_scope() as session:
+        assoc = UserChatRoomAssociation(
+            **combine_dicts(
+                attributes_for_user_chat_room_association(id, **kwargs),
+                {
+                    "user_id": lambda: create_user(str(id) + "1")["id"],
+                    "chat_room_id": lambda: create_chat_room(str(id) + "2")["id"],
+                },
+            )
+        )
+        session.add(assoc)
+        session.commit()
+        return assoc.asdict()
 
 
 def create_user_request(id=0, **kwargs):

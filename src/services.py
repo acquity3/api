@@ -689,7 +689,7 @@ class OfferService:
         offer, is_deal_closed, offer_response=None, other_party_id=None
     ):
         if offer_response is None:
-            return {"type": "offer", "is_deal_closed": is_deal_closed, **offer}
+            return {"type": "offer", **offer}
         else:
             return {
                 "type": "offer_response",
@@ -769,7 +769,10 @@ class ChatService:
                         res[offer.chat_room_id]["latest_offer"] = offer.asdict()
 
             for offer_resp in offer_responses:
-                offer = offer_d[offer_resp.offer_id]
+                offer = offer_d.get(offer_resp.offer_id)
+                if offer is None:
+                    continue
+
                 other_party_id = ChatRoomService._get_other_party_id(
                     chat_room_id=str(chat_room.id), user_id=offer.author_id
                 )
