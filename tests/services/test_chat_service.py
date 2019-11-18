@@ -348,3 +348,55 @@ def test_get_chats_by_user_id__latest_offer():
             user_id=user["id"], as_buyer=True, as_seller=True
         )["unarchived"][chat_room["id"]]["latest_offer"]
     )
+
+
+def test_get_chats_by_user_id__last_read_id_none():
+    user = create_user("00")
+    other_party = create_user("10")
+
+    chat_room = create_chat_room("01")
+    create_user_chat_room_association(
+        "02",
+        user_id=user["id"],
+        chat_room_id=chat_room["id"],
+        is_archived=False,
+        last_read_id=None,
+    )
+    create_user_chat_room_association(
+        "12", user_id=other_party["id"], chat_room_id=chat_room["id"]
+    )
+
+    create_chat("03", chat_room_id=chat_room["id"], author_id=user["id"])
+
+    res = chat_service.get_chats_by_user_id(
+        user_id=user["id"], as_buyer=True, as_seller=True
+    )["unarchived"][chat_room["id"]]
+
+    assert res["last_read_id"] is None
+    assert res["unread_count"] == 1
+
+
+def test_get_chats_by_user_id__last_read_id_not_none():
+    user = create_user("00")
+    other_party = create_user("10")
+
+    chat_room = create_chat_room("01")
+    chat = create_chat("03", chat_room_id=chat_room["id"], author_id=user["id"])
+
+    create_user_chat_room_association(
+        "02",
+        user_id=user["id"],
+        chat_room_id=chat_room["id"],
+        is_archived=False,
+        last_read_id=chat["id"],
+    )
+    create_user_chat_room_association(
+        "12", user_id=other_party["id"], chat_room_id=chat_room["id"]
+    )
+
+    res = chat_service.get_chats_by_user_id(
+        user_id=user["id"], as_buyer=True, as_seller=True
+    )["unarchived"][chat_room["id"]]
+
+    assert res["last_read_id"] == chat["id"]
+    assert res["unread_count"] == 0

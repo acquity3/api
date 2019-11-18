@@ -915,6 +915,15 @@ class ChatRoomService:
                     },
                 }
 
+    @validate_input(
+        {"user_id": UUID_RULE, "chat_room_id": UUID_RULE, "last_read_id": UUID_RULE}
+    )
+    def update_last_read_id(self, user_id, chat_room_id, last_read_id):
+        with session_scope() as session:
+            session.query(UserChatRoomAssociation).filter_by(
+                user_id=user_id, chat_room_id=chat_room_id
+            ).one().last_read_id = last_read_id
+
     @staticmethod
     def _serialize_chat_room(chat_room, user_id):
         res = chat_room.asdict()
@@ -922,12 +931,26 @@ class ChatRoomService:
             str(chat_room.id), user_id
         )
         with session_scope() as session:
-            res["is_revealed"] = (
+            assoc = (
                 session.query(UserChatRoomAssociation)
                 .filter_by(chat_room_id=str(chat_room.id), user_id=user_id)
                 .one()
-                .is_revealed
             )
+
+            res["is_revealed"] = assoc.is_revealed
+
+            last_read_id = assoc.last_read_id
+            res["last_read_id"] = last_read_id
+
+            unread_count_query = session.query(Chat).filter_by(
+                chat_room_id=str(chat_room.id)
+            )
+            if last_read_id is not None:
+                chat_create = session.query(Chat).get(last_read_id).created_at
+                unread_count_query = unread_count_query.filter(
+                    Chat.created_at > chat_create
+                )
+            res["unread_count"] = unread_count_query.count()
 
         return res
 

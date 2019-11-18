@@ -107,6 +107,15 @@ class ChatSocketService(socketio.AsyncNamespace):
         await self.emit("res_disband_chatroom", rsp, room=room_id)
 
     @handle_acquity_exceptions
+    async def on_req_update_last_read_id(self, sid, data):
+        user_id = await self._authenticate(token=data.get("token"))
+        room_id = data.get("chat_room_id")
+
+        self.chat_room_service.update_last_read_id(
+            user_id=user_id, chat_room_id=room_id, last_read_id=data.get("last_read_id")
+        )
+
+    @handle_acquity_exceptions
     async def on_req_reveal_identity(self, sid, data):
         user_id = await self._authenticate(token=data.get("token"))
         room_id = data.get("chat_room_id")
