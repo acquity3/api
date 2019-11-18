@@ -910,7 +910,7 @@ class ChatRoomService:
                         session.query(ChatRoom).get(chat_room_id), user_id
                     ),
                     **{
-                        a[1].user_id: {"email": a[1].email, "full_name": a[1].full_name}
+                        str(a[1].id): {"email": a[1].email, "full_name": a[1].full_name}
                         for a in everyone
                     },
                 }
