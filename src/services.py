@@ -793,10 +793,13 @@ class ChatService:
                 session.query(
                     ChatRoom, UserChatRoomAssociation, Match, BuyOrder, SellOrder
                 )
-                .filter(ChatRoom.match_id == Match.id)
-                .filter(UserChatRoomAssociation.chat_room_id == ChatRoom.id)
-                .filter(Match.buy_order_id == BuyOrder.id)
-                .filter(Match.sell_order_id == SellOrder.id)
+                .join(Match, ChatRoom.match_id == Match.id)
+                .join(
+                    UserChatRoomAssociation,
+                    UserChatRoomAssociation.chat_room_id == ChatRoom.id,
+                )
+                .join(BuyOrder, Match.buy_order_id == BuyOrder.id)
+                .join(SellOrder, Match.sell_order_id == SellOrder.id)
                 .filter(UserChatRoomAssociation.user_id == user_id)
                 .filter(UserChatRoomAssociation.role.in_(roles))
                 .all()
@@ -808,9 +811,14 @@ class ChatService:
             whitelist_chat_rooms = None
             if not as_seller:
                 whitelist_chat_rooms = set(
-                    r.id
+                    str(r[0].id)
                     for r in session.query(ChatRoom, Chat)
-                    .filter(ChatRoom.id == Chat.chat_room_id)
+                    .join(Chat, ChatRoom.id == Chat.chat_room_id)
+                    .all()
+                ) | set(
+                    str(r[0].id)
+                    for r in session.query(ChatRoom, Offer)
+                    .join(Offer, ChatRoom.id == Offer.chat_room_id)
                     .all()
                 )
 
@@ -818,7 +826,10 @@ class ChatService:
 
             for chat_room, assoc, match, buy_order, sell_order in chat_room_queries:
                 chat_room_id = str(chat_room.id)
-                if chat_room_id in res or chat_room_id not in whitelist_chat_rooms:
+                if (chat_room_id in res) or (
+                    (whitelist_chat_rooms is not None)
+                    and (chat_room_id not in whitelist_chat_rooms)
+                ):
                     continue
 
                 chat_room_repr = ChatRoomService(self.config)._serialize_chat_room(
@@ -962,7 +973,7 @@ class ChatRoomService:
         with session_scope() as session:
             chat_rooms = (
                 session.query(UserChatRoomAssociation, ChatRoom)
-                .filter(UserChatRoomAssociation.chat_room_id == ChatRoom.id)
+                .join(ChatRoom, UserChatRoomAssociation.chat_room_id == ChatRoom.id)
                 .filter_by(user_id=user_id)
                 .all()
             )
@@ -980,7 +991,7 @@ class ChatRoomService:
 
             everyone = (
                 session.query(UserChatRoomAssociation, User)
-                .filter(UserChatRoomAssociation.user_id == User.id)
+                .join(User, UserChatRoomAssociation.user_id == User.id)
                 .filter(UserChatRoomAssociation.chat_room_id == chat_room_id)
                 .all()
             )
@@ -1023,7 +1034,7 @@ class ChatRoomService:
             res["identities"] = None
             everyone = (
                 session.query(UserChatRoomAssociation, User)
-                .filter(UserChatRoomAssociation.user_id == User.id)
+                .join(User, UserChatRoomAssociation.user_id == User.id)
                 .filter(UserChatRoomAssociation.chat_room_id == str(chat_room.id))
                 .all()
             )

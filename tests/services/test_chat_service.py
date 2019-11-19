@@ -177,6 +177,7 @@ def test_get_chats_by_user_id__as_buyer_seller():
     create_user_chat_room_association(
         "12", user_id=other_party["id"], chat_room_id=chat_room["id"], role="SELLER"
     )
+    create_chat(chat_room_id=chat_room["id"], author_id=user["id"])
 
     chat_room2 = create_chat_room("11")
     create_user_chat_room_association(
@@ -189,6 +190,7 @@ def test_get_chats_by_user_id__as_buyer_seller():
     create_user_chat_room_association(
         "32", user_id=other_party["id"], chat_room_id=chat_room2["id"], role="BUYER"
     )
+    create_chat(chat_room_id=chat_room2["id"], author_id=user["id"])
 
     res_buyer = chat_service.get_chats_by_user_id(
         user_id=user["id"], as_buyer=True, as_seller=False
