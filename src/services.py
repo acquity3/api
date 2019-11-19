@@ -785,6 +785,10 @@ class ChatService:
             roles.append("SELLER")
 
         with session_scope() as session:
+            user = session.query(User).get(user_id)
+            if (as_buyer and (not user.can_buy)) or (as_seller and (not user.can_sell)):
+                raise UnauthorizedException("Too much permissions requested.")
+
             chat_room_queries = (
                 session.query(
                     ChatRoom, UserChatRoomAssociation, Match, BuyOrder, SellOrder
@@ -801,18 +805,31 @@ class ChatService:
             offers = session.query(Offer).all()
             offer_responses = session.query(OfferResponse).all()
 
+            whitelist_chat_rooms = None
+            if not as_seller:
+                whitelist_chat_rooms = set(
+                    r.id
+                    for r in session.query(ChatRoom, Chat)
+                    .filter(ChatRoom.id == Chat.chat_room_id)
+                    .all()
+                )
+
             res = {}
 
             for chat_room, assoc, match, buy_order, sell_order in chat_room_queries:
+                chat_room_id = str(chat_room.id)
+                if chat_room_id in res or chat_room_id not in whitelist_chat_rooms:
+                    continue
+
                 chat_room_repr = ChatRoomService(self.config)._serialize_chat_room(
                     chat_room, user_id
                 )
-                res[str(chat_room.id)] = chat_room_repr
-                res[str(chat_room.id)]["buy_order"] = buy_order.asdict()
-                res[str(chat_room.id)]["sell_order"] = sell_order.asdict()
+                res[chat_room_id] = chat_room_repr
+                res[chat_room_id]["buy_order"] = buy_order.asdict()
+                res[chat_room_id]["sell_order"] = sell_order.asdict()
 
-                res[str(chat_room.id)]["chats"] = []
-                res[str(chat_room.id)]["latest_offer"] = None
+                res[chat_room_id]["chats"] = []
+                res[chat_room_id]["latest_offer"] = None
 
             for chat in chats:
                 if chat.chat_room_id in res:
