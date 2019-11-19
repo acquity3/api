@@ -185,9 +185,8 @@ class SellOrderService:
                 session.query(SellOrder)
                 .filter_by(user_id=user_id)
                 .filter(
-                    SellOrder.round_id.in_(
-                        [current_round and current_round["id"], None]
-                    )
+                    (SellOrder.round_id == (current_round and current_round["id"]))
+                    | (SellOrder.round_id == None)
                 )
                 .all()
             )
@@ -284,7 +283,8 @@ class BuyOrderService:
                 session.query(BuyOrder)
                 .filter_by(user_id=user_id)
                 .filter(
-                    BuyOrder.round_id.in_([current_round and current_round["id"], None])
+                    (BuyOrder.round_id == (current_round and current_round["id"]))
+                    | (BuyOrder.round_id == None)
                 )
                 .all()
             )

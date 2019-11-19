@@ -26,7 +26,7 @@ def test_get_orders_by_user_in_current_round():
     current_round = create_round()
     past_round = create_round(is_concluded=True)
 
-    sell_order = create_sell_order("1", user_id=user_id, round_id=current_round["id"])
+    sell_order = create_sell_order("1", user_id=user_id, round_id=None)
     sell_order2 = create_sell_order("2", user_id=user_id, round_id=current_round["id"])
     create_sell_order("3", user_id=user_id, round_id=past_round["id"])
 
