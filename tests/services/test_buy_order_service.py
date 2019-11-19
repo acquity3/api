@@ -18,12 +18,17 @@ from tests.utils import assert_dict_in
 buy_order_service = BuyOrderService(config=APP_CONFIG)
 
 
-def test_get_orders_by_user():
+def test_get_orders_by_user_in_current_round():
     user_id = create_user()["id"]
-    buy_order = create_buy_order("1", user_id=user_id)
-    buy_order2 = create_buy_order("2", user_id=user_id)
 
-    orders = buy_order_service.get_orders_by_user(user_id=user_id)
+    current_round = create_round()
+    past_round = create_round(is_concluded=True)
+
+    buy_order = create_buy_order("1", user_id=user_id, round_id=current_round["id"])
+    buy_order2 = create_buy_order("2", user_id=user_id, round_id=current_round["id"])
+    create_buy_order("3", user_id=user_id, round_id=past_round["id"])
+
+    orders = buy_order_service.get_orders_by_user_in_current_round(user_id=user_id)
     assert len(orders) == 2
 
     assert (

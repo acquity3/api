@@ -9,6 +9,7 @@ from src.exceptions import ResourceNotOwnedException, UnauthorizedException
 from src.services import SellOrderService
 from tests.fixtures import (
     create_buy_order,
+    create_round,
     create_security,
     create_sell_order,
     create_user,
@@ -19,12 +20,17 @@ from tests.utils import assert_dict_in
 sell_order_service = SellOrderService(config=APP_CONFIG)
 
 
-def test_get_orders_by_user():
+def test_get_orders_by_user_in_current_round():
     user_id = create_user()["id"]
-    sell_order = create_sell_order("1", user_id=user_id)
-    sell_order2 = create_sell_order("2", user_id=user_id)
 
-    orders = sell_order_service.get_orders_by_user(user_id=user_id)
+    current_round = create_round()
+    past_round = create_round(is_concluded=True)
+
+    sell_order = create_sell_order("1", user_id=user_id, round_id=current_round["id"])
+    sell_order2 = create_sell_order("2", user_id=user_id, round_id=current_round["id"])
+    create_sell_order("3", user_id=user_id, round_id=past_round["id"])
+
+    orders = sell_order_service.get_orders_by_user_in_current_round(user_id=user_id)
     assert len(orders) == 2
 
     assert (

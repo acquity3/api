@@ -46,8 +46,12 @@ async def root(request):
 
 @blueprint.get("/sell_order/")
 @auth_required
-async def get_sell_orders_by_user(request, user):
-    return json(request.app.sell_order_service.get_orders_by_user(user_id=user["id"]))
+async def get_sell_orders_by_user_in_current_round(request, user):
+    return json(
+        request.app.sell_order_service.get_orders_by_user_in_current_round(
+            user_id=user["id"]
+        )
+    )
 
 
 @blueprint.get("/sell_order/<id>")
@@ -90,8 +94,12 @@ async def delete_sell_order(request, user, id):
 
 @blueprint.get("/buy_order/")
 @auth_required
-async def get_buy_orders_by_user(request, user):
-    return json(request.app.buy_order_service.get_orders_by_user(user_id=user["id"]))
+async def get_buy_orders_by_user_in_current_round(request, user):
+    return json(
+        request.app.buy_order_service.get_orders_by_user_in_current_round(
+            user_id=user["id"]
+        )
+    )
 
 
 @blueprint.get("/buy_order/<id>")
