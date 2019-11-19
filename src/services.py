@@ -1035,10 +1035,10 @@ class LinkedInLogin:
     def authenticate(self, code, redirect_uri, user_type):
         is_buy = user_type == "buyer"
         token = self._get_token(code=code, redirect_uri=redirect_uri)
-        user = self.get_linkedin_user(token["access_token"])
+        user = self.get_linkedin_user(token["access_token"], is_buy=is_buy)
         return token
 
-    def get_linkedin_user(self, token):
+    def get_linkedin_user(self, token, is_buy=None):
         with session_scope() as session:
             users = [
                 u.asdict()
@@ -1048,7 +1048,7 @@ class LinkedInLogin:
             if len(users) == 1:
                 return users[0]
 
-        return self.get_user_profile(token=token)
+        return self.get_user_profile(token=token, is_buy=is_buy)
 
     def _get_token(self, code, redirect_uri):
         res = requests.post(
@@ -1068,7 +1068,7 @@ class LinkedInLogin:
             raise UserProfileNotFoundException("Token retrieval failed.")
         return json_res
 
-    def get_user_profile(self, token):
+    def get_user_profile(self, token, is_buy=None):
         email_request = requests.get(
             "https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))",
             headers={"Authorization": f"Bearer {token}"},
@@ -1105,7 +1105,7 @@ class LinkedInLogin:
             full_name=f"{first_name} {last_name}",
             display_image_url=display_image_url,
             provider_user_id=provider_user_id,
-            is_buy=None,
+            is_buy=is_buy,
             auth_token=token,
         )
 
