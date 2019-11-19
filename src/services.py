@@ -708,7 +708,7 @@ class OfferService:
 
             session.delete(offer)
 
-        return {"type": "offer_delete", "offer_id": offer_id}
+        return {"type": "offer_delete", "id": offer_id}
 
     @staticmethod
     def _check_deal_status(session, chat_room_id, user_id):
