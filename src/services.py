@@ -179,12 +179,16 @@ class SellOrderService:
 
     @validate_input({"user_id": UUID_RULE})
     def get_orders_by_user_in_current_round(self, user_id):
-        current_round_id = RoundService(self.config).get_active()["id"]
+        current_round = RoundService(self.config).get_active()
         with session_scope() as session:
             sell_orders = (
                 session.query(SellOrder)
                 .filter_by(user_id=user_id)
-                .filter(SellOrder.round_id.in_([current_round_id, None]))
+                .filter(
+                    SellOrder.round_id.in_(
+                        [current_round and current_round["id"], None]
+                    )
+                )
                 .all()
             )
             return [sell_order.asdict() for sell_order in sell_orders]
@@ -274,12 +278,14 @@ class BuyOrderService:
 
     @validate_input({"user_id": UUID_RULE})
     def get_orders_by_user_in_current_round(self, user_id):
-        current_round_id = RoundService(self.config).get_active()["id"]
+        current_round = RoundService(self.config).get_active()
         with session_scope() as session:
             buy_orders = (
                 session.query(BuyOrder)
                 .filter_by(user_id=user_id)
-                .filter(BuyOrder.round_id.in_([current_round_id, None]))
+                .filter(
+                    BuyOrder.round_id.in_([current_round and current_round["id"], None])
+                )
                 .all()
             )
             return [buy_order.asdict() for buy_order in buy_orders]
