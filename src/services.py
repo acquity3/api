@@ -146,8 +146,8 @@ class SellOrderService:
             if not user.can_sell:
                 raise UnauthorizedException("User cannot place sell orders.")
 
-            sell_order_count = (
-                session.query(SellOrder).filter_by(user_id=user_id).count()
+            sell_order_count = len(
+                self.get_orders_by_user_in_current_round(user_id=user_id)
             )
             if sell_order_count >= self.config["ACQUITY_SELL_ORDER_PER_ROUND_LIMIT"]:
                 raise UnauthorizedException("Limit of sell orders reached.")
@@ -252,7 +252,9 @@ class BuyOrderService:
             if user.asdict()["can_buy"] == "NO":
                 raise UnauthorizedException("User cannot place buy orders.")
 
-            buy_order_count = session.query(BuyOrder).filter_by(user_id=user_id).count()
+            buy_order_count = len(
+                self.get_orders_by_user_in_current_round(user_id=user_id)
+            )
             if buy_order_count >= self.config["ACQUITY_BUY_ORDER_PER_ROUND_LIMIT"]:
                 raise UnauthorizedException("Limit of buy orders reached.")
 
