@@ -426,6 +426,12 @@ class RoundService:
 
         if scheduler is not None:
             scheduler.add_job(
+                self.send_round_closing_soon_emails,
+                "date",
+                run_date=end_time
+                - self.config["ACQUITY_ROUND_CLOSING_REMINDER_BEFORE_END_TIME"],
+            )
+            scheduler.add_job(
                 MatchService(self.config).run_matches, "date", run_date=end_time
             )
 
@@ -1035,7 +1041,7 @@ class LinkedInLogin:
     def authenticate(self, code, redirect_uri, user_type):
         is_buy = user_type == "buyer"
         token = self._get_token(code=code, redirect_uri=redirect_uri)
-        user = self.get_linkedin_user(token["access_token"], is_buy=is_buy)
+        self.get_linkedin_user(token["access_token"], is_buy=is_buy)
         return token
 
     def get_linkedin_user(self, token, is_buy=None):
