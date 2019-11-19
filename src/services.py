@@ -468,7 +468,10 @@ class MatchService:
         self.email_service = EmailService(config)
 
     def run_matches(self):
-        round_id = RoundService(self.config).get_active()["id"]
+        with session_scope() as session:
+            round_id = str(
+                session.query(Round).order_by(Round.created_at.desc()).first().id
+            )
         buy_orders, sell_orders, banned_pairs = self._get_matching_params(round_id)
 
         match_results = match_buyers_and_sellers(buy_orders, sell_orders, banned_pairs)
