@@ -974,7 +974,7 @@ class ChatRoomService:
             chat_rooms = (
                 session.query(UserChatRoomAssociation, ChatRoom)
                 .join(ChatRoom, UserChatRoomAssociation.chat_room_id == ChatRoom.id)
-                .filter_by(user_id=user_id)
+                .filter(UserChatRoomAssociation.user_id == user_id)
                 .all()
             )
             return [chat_room[1].asdict() for chat_room in chat_rooms]
