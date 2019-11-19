@@ -1004,9 +1004,6 @@ class LinkedInLogin:
         is_buy = user_type == "buyer"
         token = self._get_token(code=code, redirect_uri=redirect_uri)
         user = self.get_linkedin_user(token["access_token"])
-        UserService(self.config).create_if_not_exists(
-            **user, is_buy=is_buy, auth_token=token["access_token"]
-        )
         return token
 
     def get_linkedin_user(self, token):
