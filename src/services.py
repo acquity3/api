@@ -939,16 +939,31 @@ class ChatRoomService:
 
             res["is_revealed"] = assoc.is_revealed
 
+            res["identities"] = None
+            everyone = (
+                session.query(UserChatRoomAssociation, User)
+                .filter(UserChatRoomAssociation.user_id == User.id)
+                .filter(UserChatRoomAssociation.chat_room_id == str(chat_room.id))
+                .all()
+            )
+            is_all_revealed = all(a[0].is_revealed for a in everyone)
+            if is_all_revealed:
+                res["identities"] = {
+                    str(a[1].id): {"email": a[1].email, "full_name": a[1].full_name}
+                    for a in everyone
+                }
+
             last_read_id = assoc.last_read_id
             res["last_read_id"] = last_read_id
 
-            unread_count_query = session.query(Chat).filter_by(
-                chat_room_id=str(chat_room.id)
+            unread_count_query = (
+                session.query(Chat)
+                .filter_by(chat_room_id=str(chat_room.id))
+                .filter(Chat.author_id != user_id)
             )
             if last_read_id is not None:
-                chat_create = session.query(Chat).get(last_read_id).created_at
                 unread_count_query = unread_count_query.filter(
-                    Chat.created_at > chat_create
+                    Chat.created_at > session.query(Chat).get(last_read_id).created_at
                 )
             res["unread_count"] = unread_count_query.count()
 

@@ -18,17 +18,6 @@ from tests.utils import assert_dict_in
 chat_service = ChatService(config=APP_CONFIG)
 
 
-# TODO refactor this mess
-# - normal test for unarchived rooms (room, chats, buy_order, sell_order)
-# - normal test for archived rooms
-# - normal test for rooms the user is not in
-# - test ordering by created_at
-# - test the as_buyer, as_seller params
-# - test is_revealed behavior
-# - test latest_offer
-# - test offer_response
-
-
 def test_get_chats_by_user_id__chats():
     user = create_user("00")
     other_party = create_user("10")
@@ -363,17 +352,26 @@ def test_get_chats_by_user_id__last_read_id_none():
         last_read_id=None,
     )
     create_user_chat_room_association(
-        "12", user_id=other_party["id"], chat_room_id=chat_room["id"]
+        "12",
+        user_id=other_party["id"],
+        chat_room_id=chat_room["id"],
+        is_archived=False,
+        last_read_id=None,
     )
 
-    create_chat("03", chat_room_id=chat_room["id"], author_id=user["id"])
+    create_chat("03", chat_room_id=chat_room["id"], author_id=other_party["id"])
 
     res = chat_service.get_chats_by_user_id(
         user_id=user["id"], as_buyer=True, as_seller=True
     )["unarchived"][chat_room["id"]]
-
     assert res["last_read_id"] is None
     assert res["unread_count"] == 1
+
+    res_other = chat_service.get_chats_by_user_id(
+        user_id=other_party["id"], as_buyer=True, as_seller=True
+    )["unarchived"][chat_room["id"]]
+    assert res_other["last_read_id"] is None
+    assert res_other["unread_count"] == 0  # chat is made by other party
 
 
 def test_get_chats_by_user_id__last_read_id_not_none():
@@ -381,7 +379,7 @@ def test_get_chats_by_user_id__last_read_id_not_none():
     other_party = create_user("10")
 
     chat_room = create_chat_room("01")
-    chat = create_chat("03", chat_room_id=chat_room["id"], author_id=user["id"])
+    chat = create_chat("03", chat_room_id=chat_room["id"], author_id=other_party["id"])
 
     create_user_chat_room_association(
         "02",
@@ -400,3 +398,53 @@ def test_get_chats_by_user_id__last_read_id_not_none():
 
     assert res["last_read_id"] == chat["id"]
     assert res["unread_count"] == 0
+
+
+def test_get_chats_by_user_id__identities_all_revealed():
+    user = create_user("00")
+    other_party = create_user("10")
+
+    chat_room = create_chat_room("01")
+    create_user_chat_room_association(
+        "02",
+        user_id=user["id"],
+        chat_room_id=chat_room["id"],
+        is_archived=False,
+        is_revealed=True,
+    )
+    create_user_chat_room_association(
+        "12", user_id=other_party["id"], chat_room_id=chat_room["id"], is_revealed=True
+    )
+
+    res_identities = chat_service.get_chats_by_user_id(
+        user_id=user["id"], as_buyer=True, as_seller=True
+    )["unarchived"][chat_room["id"]]["identities"]
+
+    assert res_identities[user["id"]]["email"] == user["email"]
+    assert res_identities[user["id"]]["full_name"] == user["full_name"]
+    assert res_identities[other_party["id"]]["email"] == other_party["email"]
+    assert res_identities[other_party["id"]]["full_name"] == other_party["full_name"]
+
+
+def test_get_chats_by_user_id__identities_not_all_revealed():
+    user = create_user("00")
+    other_party = create_user("10")
+
+    chat_room = create_chat_room("01")
+    create_user_chat_room_association(
+        "02",
+        user_id=user["id"],
+        chat_room_id=chat_room["id"],
+        is_archived=False,
+        is_revealed=True,
+    )
+    create_user_chat_room_association(
+        "12", user_id=other_party["id"], chat_room_id=chat_room["id"], is_revealed=False
+    )
+
+    assert (
+        chat_service.get_chats_by_user_id(
+            user_id=user["id"], as_buyer=True, as_seller=True
+        )["unarchived"][chat_room["id"]]["identities"]
+        is None
+    )
