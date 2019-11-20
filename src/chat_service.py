@@ -66,50 +66,16 @@ class ChatSocketService(socketio.AsyncNamespace):
         await self.emit("res_new_event", offer, room=room_id)
 
     @handle_acquity_exceptions
-    async def on_req_accept_offer(self, sid, data):
+    async def on_req_edit_offer_status(self, sid, data):
         user_id = await self._authenticate(token=data.get("token"))
         room_id = data.get("chat_room_id")
         resp = self.offer_service.edit_offer_status(
             chat_room_id=room_id,
             offer_id=data.get("offer_id"),
             user_id=user_id,
-            is_accept=True,
+            offer_status=data.get("offer_status"),
         )
         await self.emit("res_new_event", resp, room=room_id)
-
-    @handle_acquity_exceptions
-    async def on_req_decline_offer(self, sid, data):
-        user_id = await self._authenticate(token=data.get("token"))
-        room_id = data.get("chat_room_id")
-        resp = self.offer_service.edit_offer_status(
-            chat_room_id=room_id,
-            offer_id=data.get("offer_id"),
-            user_id=user_id,
-            is_accept=False,
-        )
-        await self.emit("res_new_event", resp, room=room_id)
-
-    @handle_acquity_exceptions
-    async def on_req_edit_offer(self, sid, data):
-        user_id = await self._authenticate(token=data.get("token"))
-        room_id = data.get("chat_room_id")
-        offer = self.offer_service.edit_offer(
-            chat_room_id=room_id,
-            offer_id=data.get("offer_id"),
-            user_id=user_id,
-            number_of_shares=data.get("number_of_shares"),
-            price=data.get("price"),
-        )
-        await self.emit("res_new_event", offer, room=room_id)
-
-    @handle_acquity_exceptions
-    async def on_req_delete_offer(self, sid, data):
-        user_id = await self._authenticate(token=data.get("token"))
-        room_id = data.get("chat_room_id")
-        deleted_offer = self.offer_service.delete_offer(
-            chat_room_id=room_id, offer_id=data.get("offer_id"), user_id=user_id
-        )
-        await self.emit("res_new_event", deleted_offer, room=room_id)
 
     @handle_acquity_exceptions
     async def on_req_archive_chatroom(self, sid, data):

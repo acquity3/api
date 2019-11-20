@@ -664,25 +664,29 @@ class OfferService:
                 offer=offer_dict, is_deal_closed=chat_room.is_deal_closed
             )
 
-    def edit_offer_status(self, chat_room_id, offer_id, user_id, is_accept):
+    def edit_offer_status(self, chat_room_id, offer_id, user_id, offer_status):
         with session_scope() as session:
             OfferService._check_deal_status(
                 session=session, chat_room_id=chat_room_id, user_id=user_id
             )
 
-            chat_room = session.query(ChatRoom).get(chat_room_id)
             offer = session.query(Offer).get(offer_id)
 
             if offer.offer_status != "PENDING":
                 raise InvalidRequestException("Offer is closed")
-            if offer.author_id == user_id:
+            if offer_status == "PENDING":
+                raise InvalidRequestException("Cannot change offer back to PENDING")
+            if offer_status == "CANCELED" and offer.author_id != user_id:
+                raise InvalidRequestException("You can only cancel your offer")
+            if offer_status in ["ACCEPTED", "REJECTED"] and offer.author_id == user_id:
                 raise InvalidRequestException(
                     "You can not accept/reject your own offer"
                 )
 
+            chat_room = session.query(ChatRoom).get(chat_room_id)
             chat_room.updated_at = offer.created_at
-            chat_room.is_deal_closed = is_accept
-            offer.offer_status = "ACCEPTED" if is_accept else "REJECTED"
+            chat_room.is_deal_closed = offer_status == "ACCEPTED"
+            offer.offer_status = offer_status
             session.add(offer)
             session.flush()
 
@@ -690,54 +694,12 @@ class OfferService:
             session.add(offer_response)
             session.flush()
 
-            other_party_id = ChatRoomService._get_other_party_id(
-                chat_room_id=str(chat_room.id), user_id=offer.author_id
-            )
             return OfferService._serialize_chat_offer(
                 offer=offer.asdict(),
                 is_deal_closed=chat_room.is_deal_closed,
                 offer_response=offer_response.asdict(),
-                other_party_id=other_party_id,
+                author_id=user_id,
             )
-
-    def edit_offer(self, chat_room_id, offer_id, user_id, number_of_shares, price):
-        with session_scope() as session:
-            OfferService._check_deal_status(
-                session=session, chat_room_id=chat_room_id, user_id=user_id
-            )
-
-            offer = session.query(Offer).get(offer_id)
-
-            if offer.offer_status != "PENDING":
-                raise InvalidRequestException("Offer is closed")
-            if offer.author_id != user_id:
-                raise ResourceNotOwnedException("Not your own offer")
-
-            if number_of_shares is not None:
-                offer.number_of_shares = number_of_shares
-            if price is not None:
-                offer.price = price
-
-            session.add(offer)
-            session.commit()
-            return {"type": "offer_edit", **offer.asdict()}
-
-    def delete_offer(self, chat_room_id, offer_id, user_id):
-        with session_scope() as session:
-            OfferService._check_deal_status(
-                session=session, chat_room_id=chat_room_id, user_id=user_id
-            )
-
-            offer = session.query(Offer).get(offer_id)
-
-            if offer.offer_status != "PENDING":
-                raise InvalidRequestException("Offer is closed")
-            if offer.author_id != user_id:
-                raise ResourceNotOwnedException("Not your own offer")
-
-            session.delete(offer)
-
-        return {"type": "offer_delete", "id": offer_id}
 
     @staticmethod
     def _check_deal_status(session, chat_room_id, user_id):
@@ -757,7 +719,7 @@ class OfferService:
 
     @staticmethod
     def _serialize_chat_offer(
-        offer, is_deal_closed, offer_response=None, other_party_id=None
+        offer, is_deal_closed, offer_response=None, author_id=None
     ):
         if offer_response is None:
             return {"type": "offer", **offer}
@@ -767,7 +729,7 @@ class OfferService:
                 "is_deal_closed": is_deal_closed,
                 **offer,
                 **offer_response,
-                "author_id": other_party_id,
+                "author_id": author_id,
             }
 
 
@@ -875,7 +837,7 @@ class ChatService:
                         offer=offer.asdict(),
                         is_deal_closed=chat_room.is_deal_closed,
                         offer_response=offer_resp.asdict(),
-                        other_party_id=other_party_id,
+                        author_id=other_party_id,
                     )
                 )
 

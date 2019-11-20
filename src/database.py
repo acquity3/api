@@ -237,7 +237,7 @@ class Offer(Base):
     number_of_shares = Column(Float, nullable=False)
     author_id = Column(UUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     offer_status = Column(
-        Enum("ACCEPTED", "REJECTED", "PENDING", name="offer_statuses"),
+        Enum("ACCEPTED", "REJECTED", "PENDING", "CANCELED", name="offer_statuses"),
         nullable=False,
         server_default="PENDING",
     )
