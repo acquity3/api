@@ -929,7 +929,9 @@ class ChatRoomService:
             my_user_id=assoc[0]["user_id"], other_user_id=assoc[1]["user_id"]
         )
 
-        return {"chat_room_id": chat_room_id}
+        with session_scope() as session:
+            chat_room = session.query(ChatRoom).get(chat_room_id)
+            return ChatRoomService._chat_room_dict_with_disband_info(chat_room)
 
     @validate_input({"user_id": UUID_RULE, "chat_room_id": UUID_RULE})
     def archive_room(self, user_id, chat_room_id):
@@ -995,7 +997,7 @@ class ChatRoomService:
         )
 
     @staticmethod
-    def _serialize_chat_room(chat_room, user_id):
+    def _chat_room_dict_with_disband_info(chat_room):
         res = chat_room.asdict()
         if ChatRoomService.is_disbanded(chat_room):
             res["disband_info"] = {
@@ -1004,6 +1006,11 @@ class ChatRoomService:
             }
         res.pop("disband_by_user_id")
         res.pop("disband_time")
+        return res
+
+    @staticmethod
+    def _serialize_chat_room(chat_room, user_id):
+        res = ChatRoomService._chat_room_dict_with_disband_info(chat_room)
 
         res["other_party_id"] = ChatRoomService._get_other_party_id(
             str(chat_room.id), user_id
