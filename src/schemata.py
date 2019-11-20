@@ -70,3 +70,20 @@ GET_CHATS_BY_USER_ID_SCHEMA = {
     "as_buyer": {"type": "boolean"},
     "as_seller": {"type": "boolean"},
 }
+CREATE_NEW_MESSAGE_SCHEMA = {
+    "chat_room_id": UUID_RULE,
+    "author_id": UUID_RULE,
+    "message": {"type": "string"},
+}
+CREATE_NEW_OFFER_SCHEMA = {
+    "chat_room_id": UUID_RULE,
+    "author_id": UUID_RULE,
+    "number_of_shares": NONNEGATIVE_NUMBER_RULE,
+    "price": NONNEGATIVE_NUMBER_RULE,
+}
+EDIT_OFFER_STATUS_SCHEMA = {
+    "chat_room_id": UUID_RULE,
+    "offer_id": UUID_RULE,
+    "user_id": UUID_RULE,
+    "offer_status": {"type": "string", "allowed": ["ACCEPTED", "CANCELED", "REJECTED"]},
+}

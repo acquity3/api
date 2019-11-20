@@ -33,9 +33,12 @@ from src.match import match_buyers_and_sellers
 from src.schemata import (
     AUTHENTICATE_SCHEMA,
     CREATE_BUY_ORDER_SCHEMA,
+    CREATE_NEW_MESSAGE_SCHEMA,
+    CREATE_NEW_OFFER_SCHEMA,
     CREATE_SELL_ORDER_SCHEMA,
     DELETE_ORDER_SCHEMA,
     EDIT_MARKET_PRICE_SCHEMA,
+    EDIT_OFFER_STATUS_SCHEMA,
     EDIT_ORDER_SCHEMA,
     GET_AUTH_URL_SHCMEA,
     GET_CHATS_BY_USER_ID_SCHEMA,
@@ -633,6 +636,7 @@ class OfferService:
     def __init__(self, config):
         self.config = config
 
+    @validate_input(CREATE_NEW_OFFER_SCHEMA)
     def create_new_offer(self, chat_room_id, author_id, price, number_of_shares):
         with session_scope() as session:
             OfferService._check_deal_status(
@@ -664,6 +668,7 @@ class OfferService:
                 offer=offer_dict, is_deal_closed=chat_room.is_deal_closed
             )
 
+    @validate_input(EDIT_OFFER_STATUS_SCHEMA)
     def edit_offer_status(self, chat_room_id, offer_id, user_id, offer_status):
         with session_scope() as session:
             OfferService._check_deal_status(
@@ -674,8 +679,6 @@ class OfferService:
 
             if offer.offer_status != "PENDING":
                 raise InvalidRequestException("Offer is closed")
-            if offer_status == "PENDING":
-                raise InvalidRequestException("Cannot change offer back to PENDING")
             if offer_status == "CANCELED" and offer.author_id != user_id:
                 raise InvalidRequestException("You can only cancel your offer")
             if offer_status in ["ACCEPTED", "REJECTED"] and offer.author_id == user_id:
@@ -858,6 +861,7 @@ class ChatService:
 
         return {"archived": archived_res, "unarchived": unarchived_res}
 
+    @validate_input(CREATE_NEW_MESSAGE_SCHEMA)
     def create_new_message(self, chat_room_id, message, author_id):
         with session_scope() as session:
             chat_room = session.query(ChatRoom).get(chat_room_id)
