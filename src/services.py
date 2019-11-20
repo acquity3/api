@@ -832,7 +832,7 @@ class ChatService:
                 if offer is None:
                     continue
 
-                if offer.status == "CANCELED":
+                if offer.offer_status == "CANCELED":
                     author_id = user_id
                 else:
                     author_id = ChatRoomService._get_other_party_id(
