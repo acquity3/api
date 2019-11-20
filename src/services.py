@@ -837,7 +837,9 @@ class ChatService:
                 )
                 res[chat_room_id] = chat_room_repr
                 res[chat_room_id]["buy_order"] = buy_order.asdict()
-                res[chat_room_id]["sell_order"] = sell_order.asdict()
+                res[chat_room_id]["sell_order"] = (
+                    sell_order.asdict() if as_seller else None
+                )
 
                 res[chat_room_id]["chats"] = []
                 res[chat_room_id]["latest_offer"] = None
@@ -866,9 +868,9 @@ class ChatService:
                     continue
 
                 other_party_id = ChatRoomService._get_other_party_id(
-                    chat_room_id=str(chat_room.id), user_id=offer.author_id
+                    chat_room_id=offer.chat_room_id, user_id=offer.author_id
                 )
-                res[str(chat_room.id)]["chats"].append(
+                res[offer.chat_room_id]["chats"].append(
                     OfferService._serialize_chat_offer(
                         offer=offer.asdict(),
                         is_deal_closed=chat_room.is_deal_closed,

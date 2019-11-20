@@ -488,3 +488,25 @@ def test_get_chats_by_user_id__hidden_chat_rooms():
         user_id=user["id"], as_buyer=True, as_seller=False
     )
     assert len(res["unarchived"]) == 0
+
+
+def test_get_chats_by_user_id__hidden_buy_order():
+    user = create_user("00")
+    other_party = create_user("10")
+    chat_room = create_chat_room("01")
+    create_user_chat_room_association(
+        "02",
+        user_id=user["id"],
+        chat_room_id=chat_room["id"],
+        is_archived=False,
+        role="BUYER",
+    )
+    create_user_chat_room_association(
+        "12", user_id=other_party["id"], chat_room_id=chat_room["id"]
+    )
+    create_chat(chat_room_id=chat_room["id"], author_id=other_party["id"])
+
+    res = chat_service.get_chats_by_user_id(
+        user_id=user["id"], as_buyer=True, as_seller=False
+    )
+    assert res["unarchived"][chat_room["id"]]["sell_order"] is None
