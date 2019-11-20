@@ -832,15 +832,18 @@ class ChatService:
                 if offer is None:
                     continue
 
-                other_party_id = ChatRoomService._get_other_party_id(
-                    chat_room_id=offer.chat_room_id, user_id=offer.author_id
-                )
+                if offer.status == "CANCELED":
+                    author_id = user_id
+                else:
+                    author_id = ChatRoomService._get_other_party_id(
+                        chat_room_id=offer.chat_room_id, user_id=offer.author_id
+                    )
                 res[offer.chat_room_id]["chats"].append(
                     OfferService._serialize_chat_offer(
                         offer=offer.asdict(),
                         is_deal_closed=chat_room.is_deal_closed,
                         offer_response=offer_resp.asdict(),
-                        author_id=other_party_id,
+                        author_id=author_id,
                     )
                 )
 

@@ -1,3 +1,5 @@
+from functools import wraps
+
 import socketio
 
 from src.exceptions import AcquityException
@@ -11,6 +13,7 @@ from src.services import (
 
 
 def handle_acquity_exceptions(f):
+    @wraps(f)
     async def decorated(self, sid, *args, **kwargs):
         try:
             return await f(self, sid, *args, **kwargs)
@@ -25,6 +28,7 @@ def handle_acquity_exceptions(f):
 
 
 def auth_required(f):
+    @wraps(f)
     async def decorated(self, sid, data):
         token = data.get("token")
         if token is None:
