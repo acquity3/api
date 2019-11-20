@@ -997,10 +997,11 @@ class ChatRoomService:
     @staticmethod
     def _serialize_chat_room(chat_room, user_id):
         res = chat_room.asdict()
-        res["disband_info"] = {
-            "disband_by_user_id": res["disband_by_user_id"],
-            "disband_time": res["disband_time"],
-        }
+        if ChatRoomService.is_disbanded(chat_room):
+            res["disband_info"] = {
+                "disband_by_user_id": res["disband_by_user_id"],
+                "disband_time": res["disband_time"],
+            }
         res.pop("disband_by_user_id")
         res.pop("disband_time")
 
