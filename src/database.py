@@ -196,11 +196,12 @@ class ChatRoom(Base):
     __tablename__ = "chat_rooms"
 
     is_deal_closed = Column(Boolean, nullable=False, server_default="f")
-    is_disbanded = Column(Boolean, nullable=False, server_default="f")
     friendly_name = Column(String, nullable=False, default=generate_friendly_name)
     match_id = Column(
         UUID, ForeignKey("matches.id", ondelete="CASCADE"), nullable=False
     )
+    disband_by_user_id = Column(UUID, ForeignKey("users.id", ondelete="CASCADE"))
+    disband_time = Column(DateTime)
 
 
 class UserChatRoomAssociation(Base):

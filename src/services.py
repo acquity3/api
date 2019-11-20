@@ -650,7 +650,7 @@ class OfferService:
                 raise InvalidRequestException("There are still pending offers")
 
             chat_room = session.query(ChatRoom).get(chat_room_id)
-            if chat_room.is_disbanded:
+            if ChatRoomService.is_disbanded(chat_room):
                 raise ResourceNotFoundException("Chat room is disbanded")
 
             offer = Offer(
@@ -870,7 +870,7 @@ class ChatService:
             chat_room = session.query(ChatRoom).get(chat_room_id)
             if chat_room is None:
                 raise ResourceNotFoundException("Chat room not found")
-            if chat_room.is_disbanded:
+            if ChatRoomService.is_disbanded(chat_room):
                 raise ResourceNotFoundException("Chat room is disbanded")
 
             if (
@@ -922,7 +922,8 @@ class ChatRoomService:
             ]
             if user_id not in [a["user_id"] for a in assoc]:
                 raise InvalidRequestException("Not in chat room")
-            chat_room.is_disbanded = True
+            chat_room.disband_by_user_id = user_id
+            chat_room.disband_time = datetime.now(timezone.utc)
 
         BannedPairService(self.config)._ban_user(
             my_user_id=assoc[0]["user_id"], other_user_id=assoc[1]["user_id"]
@@ -986,6 +987,12 @@ class ChatRoomService:
             session.query(UserChatRoomAssociation).filter_by(
                 user_id=user_id, chat_room_id=chat_room_id
             ).one().last_read_id = last_read_id
+
+    @staticmethod
+    def is_disbanded(chat_room):
+        return (chat_room.disband_by_user_id is not None) and (
+            chat_room.disband_time is not None
+        )
 
     @staticmethod
     def _serialize_chat_room(chat_room, user_id):
