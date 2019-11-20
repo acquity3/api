@@ -1,5 +1,6 @@
 import socketio
 
+from src.exceptions import AcquityException
 from src.services import (
     ChatRoomService,
     ChatService,
@@ -7,7 +8,37 @@ from src.services import (
     OfferService,
     UserService,
 )
-from src.utils import handle_acquity_exceptions
+
+
+def handle_acquity_exceptions(f):
+    async def decorated(self, sid, *args, **kwargs):
+        try:
+            return await f(self, sid, *args, **kwargs)
+        except AcquityException as e:
+            # on_req_* => req_*
+            channel_name = f.__name__[3:]
+            await self.emit(
+                "error", {"name": channel_name, "message": e.message}, room=sid
+            )
+
+    return decorated
+
+
+def auth_required(f):
+    async def decorated(self, sid, data):
+        token = data.get("token")
+        if token is None:
+            pass
+
+        linkedin_user = self.linkedin_login.get_linkedin_user(token=token)
+        user = self.user_service.get_user_by_linkedin_id(
+            provider_user_id=linkedin_user["provider_user_id"]
+        )
+
+        data.pop("token")
+        return await f(self, sid, data, user)
+
+    return decorated
 
 
 class ChatSocketService(socketio.AsyncNamespace):
@@ -20,13 +51,6 @@ class ChatSocketService(socketio.AsyncNamespace):
         self.offer_service = OfferService(config)
         self.config = config
 
-    async def _authenticate(self, token):
-        linkedin_user = self.linkedin_login.get_linkedin_user(token=token)
-        user = self.user_service.get_user_by_linkedin_id(
-            provider_user_id=linkedin_user.get("provider_user_id")
-        )
-        return user.get("id")
-
     async def on_connect(self, sid, environ):
         return {"data": "success"}
 
@@ -34,83 +58,52 @@ class ChatSocketService(socketio.AsyncNamespace):
         return {"data": "success"}
 
     @handle_acquity_exceptions
-    async def on_req_subscribe(self, sid, data):
-        user_id = await self._authenticate(token=data.get("token"))
-        for chat_room in self.chat_room_service.get_chat_rooms_by_user_id(
-            user_id=user_id
-        ):
+    @auth_required
+    async def on_req_subscribe(self, sid, data, user):
+        chat_rooms = self.chat_room_service.get_chat_rooms_by_user_id(
+            user_id=user["id"]
+        )
+        for chat_room in chat_rooms:
             self.enter_room(sid, chat_room["id"])
 
     @handle_acquity_exceptions
-    async def on_req_new_message(self, sid, data):
-        user_id = await self._authenticate(token=data.get("token"))
-        room_id = data.get("chat_room_id")
-        chat = self.chat_service.create_new_message(
-            chat_room_id=data.get("chat_room_id"),
-            message=data.get("message"),
-            author_id=user_id,
-        )
-
-        await self.emit("res_new_event", chat, room=room_id)
+    @auth_required
+    async def on_req_new_message(self, sid, data, user):
+        chat = self.chat_service.create_new_message(**data, author_id=user["id"])
+        await self.emit("res_new_event", chat, room=data["chat_room_id"])
 
     @handle_acquity_exceptions
-    async def on_req_new_offer(self, sid, data):
-        user_id = await self._authenticate(token=data.get("token"))
-        room_id = data.get("chat_room_id")
-        offer = self.offer_service.create_new_offer(
-            author_id=user_id,
-            chat_room_id=data.get("chat_room_id"),
-            price=data.get("price"),
-            number_of_shares=data.get("number_of_shares"),
-        )
-        await self.emit("res_new_event", offer, room=room_id)
+    @auth_required
+    async def on_req_new_offer(self, sid, data, user):
+        offer = self.offer_service.create_new_offer(**data, author_id=user["id"])
+        await self.emit("res_new_event", offer, room=data["chat_room_id"])
 
     @handle_acquity_exceptions
-    async def on_req_edit_offer_status(self, sid, data):
-        user_id = await self._authenticate(token=data.get("token"))
-        room_id = data.get("chat_room_id")
-        resp = self.offer_service.edit_offer_status(
-            chat_room_id=room_id,
-            offer_id=data.get("offer_id"),
-            user_id=user_id,
-            offer_status=data.get("offer_status"),
-        )
-        await self.emit("res_new_event", resp, room=room_id)
+    @auth_required
+    async def on_req_edit_offer_status(self, sid, data, user):
+        resp = self.offer_service.edit_offer_status(**data, user_id=user["id"])
+        await self.emit("res_new_event", resp, room=data["chat_room_id"])
 
     @handle_acquity_exceptions
-    async def on_req_archive_chatroom(self, sid, data):
-        user_id = await self._authenticate(token=data.get("token"))
-        self.chat_room_service.archive_room(
-            user_id=user_id, chat_room_id=data.get("chat_room_id")
-        )
+    @auth_required
+    async def on_req_archive_chatroom(self, sid, data, user):
+        self.chat_room_service.archive_room(**data, user_id=user["id"])
 
     @handle_acquity_exceptions
-    async def on_req_disband_chatroom(self, sid, data):
-        user_id = await self._authenticate(token=data.get("token"))
-        room_id = data.get("chat_room_id")
-
-        rsp = self.chat_room_service.disband_chatroom(
-            user_id=user_id, chat_room_id=room_id
-        )
-        await self.emit("res_disband_chatroom", rsp, room=room_id)
+    @auth_required
+    async def on_req_disband_chatroom(self, sid, data, user):
+        rsp = self.chat_room_service.disband_chatroom(**data, user_id=user["id"])
+        await self.emit("res_disband_chatroom", rsp, room=data["chat_room_id"])
 
     @handle_acquity_exceptions
-    async def on_req_update_last_read_id(self, sid, data):
-        user_id = await self._authenticate(token=data.get("token"))
-        room_id = data.get("chat_room_id")
-
-        self.chat_room_service.update_last_read_id(
-            user_id=user_id, chat_room_id=room_id, last_read_id=data.get("last_read_id")
-        )
+    @auth_required
+    async def on_req_update_last_read_id(self, sid, data, user):
+        self.chat_room_service.update_last_read_id(**data, user_id=user["id"])
 
     @handle_acquity_exceptions
-    async def on_req_reveal_identity(self, sid, data):
-        user_id = await self._authenticate(token=data.get("token"))
-        room_id = data.get("chat_room_id")
-
-        rsp = self.chat_room_service.reveal_identity(
-            chat_room_id=room_id, user_id=user_id
-        )
+    @auth_required
+    async def on_req_reveal_identity(self, sid, data, user):
+        rsp = self.chat_room_service.reveal_identity(**data, user_id=user["id"])
 
         if rsp is not None:
-            await self.emit("res_reveal_identity", rsp, room=room_id)
+            await self.emit("res_reveal_identity", rsp, room=data["chat_room_id"])
