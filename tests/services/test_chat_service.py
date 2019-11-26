@@ -41,6 +41,8 @@ def test_get_chats_by_user_id__chats():
     )
 
     res_room = res["unarchived"][chat_room["id"]]
+    chat_room.pop("disband_by_user_id")
+    chat_room.pop("disband_time")
     assert_dict_in(chat_room, res_room)
 
     res_chats = res_room["chats"]
@@ -68,6 +70,8 @@ def test_get_chats_by_user_id__offers():
     )
 
     res_room = res["unarchived"][chat_room["id"]]
+    chat_room.pop("disband_by_user_id")
+    chat_room.pop("disband_time")
     assert_dict_in(chat_room, res_room)
 
     res_chats = res_room["chats"]
@@ -93,6 +97,8 @@ def test_get_chats_by_user_id__offer_responses():
     )
 
     res_room = res["unarchived"][chat_room["id"]]
+    chat_room.pop("disband_by_user_id")
+    chat_room.pop("disband_time")
     assert_dict_in(chat_room, res_room)
 
     res_chats = res_room["chats"]
@@ -124,6 +130,8 @@ def test_get_chats_by_user_id__offer_responses_not_in_room():
     )
 
     res_room = res["unarchived"][chat_room["id"]]
+    chat_room.pop("disband_by_user_id")
+    chat_room.pop("disband_time")
     assert_dict_in(chat_room, res_room)
 
     res_chats = res_room["chats"]
@@ -147,6 +155,8 @@ def test_get_chats_by_user_id__archived():
     )
 
     res_room = res["archived"][chat_room["id"]]
+    chat_room.pop("disband_by_user_id")
+    chat_room.pop("disband_time")
     assert_dict_in(chat_room, res_room)
 
 

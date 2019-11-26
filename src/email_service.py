@@ -63,9 +63,13 @@ EMAIL_TEMPLATE = {
         "subject": "Your ask has been edited",
         "html": "emails/edit_order/seller.html",
     },
-    "match_done_has_match": {
+    "match_done_has_match_buyer": {
         "subject": "You got a match!",
-        "html": "emails/match.html",
+        "html": "emails/match/buyer.html",
+    },
+    "match_done_has_match_seller": {
+        "subject": "You got a match!",
+        "html": "emails/match/seller.html",
     },
     "match_done_no_match": {
         "subject": "We could not find you a match",

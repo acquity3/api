@@ -584,31 +584,44 @@ class MatchService:
             matched_uuids.add(sell_order_uuid)
 
         all_user_ids = set()
-        matched_user_ids = set()
+        matched_buyer_user_ids = set()
+        matched_seller_user_ids = set()
         for buy_order in buy_orders:
             all_user_ids.add(buy_order["user_id"])
             if buy_order["id"] in matched_uuids:
-                matched_user_ids.add(buy_order["user_id"])
+                matched_buyer_user_ids.add(buy_order["user_id"])
         for sell_order in sell_orders:
             all_user_ids.add(sell_order["user_id"])
             if sell_order["id"] in matched_uuids:
-                matched_user_ids.add(sell_order["user_id"])
+                matched_seller_user_ids.add(sell_order["user_id"])
 
         with session_scope() as session:
-            matched_emails = [
+            matched_buyer_emails = [
                 user.email
                 for user in session.query(User)
-                .filter(User.id.in_(matched_user_ids))
+                .filter(User.id.in_(matched_buyer_user_ids))
                 .all()
             ]
             self.email_service.send_email(
-                matched_emails, template="match_done_has_match"
+                matched_buyer_emails, template="match_done_has_match_buyer"
             )
-
+            matched_seller_emails = [
+                user.email
+                for user in session.query(User)
+                .filter(User.id.in_(matched_seller_user_ids))
+                .all()
+            ]
+            self.email_service.send_email(
+                matched_seller_emails, template="match_done_has_match_seller"
+            )
             unmatched_emails = [
                 user.email
                 for user in session.query(User)
-                .filter(User.id.in_(all_user_ids - matched_user_ids))
+                .filter(
+                    User.id.in_(
+                        all_user_ids - matched_buyer_user_ids - matched_seller_user_ids
+                    )
+                )
                 .all()
             ]
             self.email_service.send_email(

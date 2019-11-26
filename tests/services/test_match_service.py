@@ -40,10 +40,8 @@ def test_run_matches():
         match_service.run_matches()
         mock_email.assert_has_calls(
             [
-                call(
-                    [buy_user["email"], sell_user["email"]],
-                    template="match_done_has_match",
-                ),
+                call([buy_user["email"]], template="match_done_has_match_buyer"),
+                call([sell_user["email"]], template="match_done_has_match_seller"),
                 call(
                     [buy_user2["email"], sell_user2["email"]],
                     template="match_done_no_match",
