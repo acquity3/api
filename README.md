@@ -18,8 +18,10 @@ poetry install
 Setup/reset database (install Postgres first)
 ```
 ./setup_db.sh
+./run_migrations.sh
+./run_seeds.sh
 ```
-Add the environmental variables CLIENT_ID and CLIENT_SECRET
+Add environment variables from the default values
 ```
 cp .env.default .env
 ```
