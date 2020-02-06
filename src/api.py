@@ -118,7 +118,6 @@ async def create_buy_order(request, user):
         request.app.buy_order_service.create_order(**request.json, user_id=user["id"])
     )
 
-
 @blueprint.patch("/buy_order/<id>")
 @auth_required
 @expects_json_object
@@ -170,6 +169,13 @@ async def get_previous_round(request, security_id):
         request.app.round_service.get_previous_round_statistics(security_id=security_id)
     )
 
+@blueprint.get("/round/active/stats")
+async def get_active_round_stats(request):
+    return json(request.app.round_service.get_stats())
+
+@blueprint.get("/user/stats")
+async def get_user_stats(request):
+    return json(request.app.user_service.get_stats())
 
 @blueprint.get("/auth/linkedin")
 async def linkedin_auth(request):

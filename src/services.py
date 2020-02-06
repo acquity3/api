@@ -134,6 +134,13 @@ class UserService:
                 ]
                 self.email_service.send_email(buyer_emails, template=template, **kwargs)
 
+    def get_stats(self):
+        with session_scope() as session:
+            return {
+                'sellers': session.query(User).filter_by(can_sell=True).count(), 
+                'buyers': session.query(User).filter_by(can_buy=True).count()
+            }
+
 
 class SellOrderService:
     def __init__(self, config):
@@ -384,6 +391,43 @@ class RoundService:
                 .one_or_none()
             )
             return active_round and active_round.asdict()
+
+    def get_stats(self):
+        with session_scope() as session:
+            sell_orders = session.query(SellOrder.number_of_shares, SellOrder.price).join(Round).filter(Round.end_time >= datetime.now(), Round.is_concluded == False).all()
+            total_sell_shares, min_sell_price, max_sell_price = 0, -1, 0 
+            for o in sell_orders:
+                total_sell_shares += o.number_of_shares
+                if o.price < min_sell_price or min_sell_price < 0:
+                    min_sell_price = o.price
+                if o.price > max_sell_price:
+                    max_sell_price = o.price
+
+            buy_orders = session.query(BuyOrder.number_of_shares, BuyOrder.price).join(Round).filter(Round.end_time >= datetime.now(), Round.is_concluded == False).all()
+
+            total_buy_shares, min_buy_price, max_buy_price = 0, -1, 0
+            for o in buy_orders:
+                total_buy_shares += o.number_of_shares
+                if o.price < min_buy_price or min_buy_price < 0:
+                    min_buy_price = o.price
+                if o.price > max_buy_price:
+                    max_buy_price = o.price
+
+
+            return (total_sell_shares > 0 or total_buy_shares > 0) and {
+                'sell': {
+                    'total_shares': total_sell_shares,
+                    'min_price': min_sell_price,
+                    'max_price': max_sell_price
+
+                } ,
+                'buy': {
+                    'total_shares': total_buy_shares,
+                    'min_price': min_buy_price,
+                    'max_price': max_buy_price
+                } 
+            }
+
 
     def should_round_start(self):
         with session_scope() as session:
